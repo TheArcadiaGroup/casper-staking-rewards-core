@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "tests",
+    "staking-rewards",
+    "libs"
+]
