@@ -4,3 +4,7 @@ members = [
     "staking-rewards",
     "libs"
 ]
+
+# enable overflow checks (similar to SafeMath in solidity)
+[profile.release]
+overflow-checks = true

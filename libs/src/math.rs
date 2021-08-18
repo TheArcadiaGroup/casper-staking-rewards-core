@@ -9,7 +9,7 @@ use types::U256;
 /// * `y` - the second `U256` value.
 /// # Returns
 /// * the `U256` minimum value between the two inputs.
-fn min(x: U256, y: U256) -> U256 {
+pub fn min(x: U256, y: U256) -> U256 {
     return std::cmp::min(x, y);
 }
 
@@ -20,7 +20,7 @@ fn min(x: U256, y: U256) -> U256 {
 /// * `x` - the `U256` value.
 /// # Returns
 /// * the `U256` square root of the input.
-fn sqrt(x: U256) -> U256 {
+pub fn sqrt(x: U256) -> U256 {
     return x.integer_sqrt();
 }
 

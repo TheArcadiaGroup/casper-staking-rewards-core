@@ -12,7 +12,3 @@ types = { package = "casper-types", version="1.2" }
 
 [lib]
 name = "libs"
-
-# enable overflow checks (similar to SafeMath in solidity)
-[profile.release]
-overflow-checks = true
