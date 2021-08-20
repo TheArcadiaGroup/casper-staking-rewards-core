@@ -2,7 +2,8 @@
 members = [
     "tests",
     "staking-rewards",
-    "libs"
+    "libs",
+    "erc20"
 ]
 
 # enable overflow checks (similar to SafeMath in solidity)

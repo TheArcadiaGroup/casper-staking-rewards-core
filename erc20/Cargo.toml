@@ -1,8 +1,6 @@
 [package]
-name = "staking-rewards"
-description = "Synthetix - StakingRewards contract written in Rust"
+name = "erc20"
 version = "0.1.0"
-authors = ["Jihed CHALGHAF <chalghaf.jihed@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,11 +8,13 @@ edition = "2018"
 [dependencies]
 contract = { package = "casper-contract", version="1.3.2" }
 types = { package = "casper-types", version="1.3.2" }
-libs = { path = "../libs" }
 
-[lib]
-crate-type = ["cdylib"]
-name = "staking_rewards"
+[[bin]]
+name = "erc20"
+path = "src/main.rs"
+bench = false
+doctest = false
+test = false
 
 [features]
 default = ["contract/std", "types/std"]
