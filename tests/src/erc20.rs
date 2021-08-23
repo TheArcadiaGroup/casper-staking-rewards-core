@@ -60,7 +60,7 @@ impl Token {
         }
     }
 
-    fn contract_hash(&self) -> Hash {
+    pub fn contract_hash(&self) -> Hash {
         self.context
             .query(self.ali, &[format!("{}_hash", self.name)])
             .unwrap_or_else(|_| panic!("{} contract not found", self.name))

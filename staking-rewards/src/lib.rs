@@ -9,7 +9,7 @@ use alloc::{
     string::String,
 };
 use core::convert::TryInto;
-use std::{ops::{Add, Div, Mul, Sub}, time::SystemTime};
+use std::ops::{Add, Div, Mul, Sub};
 use contract::{contract_api::{runtime::{self, call_contract}, storage}, unwrap_or_revert::UnwrapOrRevert};
 use types::{ApiError, CLType, CLTyped, CLValue, Contract, ContractHash, Group, Parameter, PublicKey, RuntimeArgs, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys}, runtime_args};
 use libs::math;
@@ -91,6 +91,19 @@ pub extern "C" fn reward_of() {
     ret(val)
 }
 
+#[no_mangle]
+pub extern "C" fn total_supply() {
+    let val: U256 = get_key("staking_rewards_data", "total_supply");
+    ret(val)
+}
+
+#[no_mangle]
+pub extern "C" fn balance_of() {
+    let owner: AccountHash = runtime::get_named_arg("owner");
+    let val: U256 = get_key("balances", &owner.to_string());
+    ret(val)
+}
+
 // from RewardsDistributionRecipient.sol
 #[no_mangle]
 pub extern "C" fn rewards_distribution() {
@@ -140,14 +153,16 @@ pub extern "C" fn set_paused() {
     _only_owner();
     let paused: bool = runtime::get_named_arg("paused");
     // Ensure we're actually changing the state before we do anything
-    if (paused == get_key::<bool>("staking_rewards_data", "paused")) {
-        return;
-    }
-    // Set our paused state
-    set_key("staking_rewards_data", "paused", paused);
-    // If applicable, set the last pause time
-    if (paused) {
-        set_key("staking_rewards_data", "last_pause_time", U256::from(SystemTime::now().elapsed().unwrap().as_secs()));
+    if (paused != get_key::<bool>("staking_rewards_data", "paused")) {
+        // Set our paused state
+        set_key("staking_rewards_data", "paused", paused);
+        // If applicable, set the last pause time
+        if (paused) {
+            set_key(
+            "staking_rewards_data",
+            "last_pause_time",
+            U256::from(&runtime::get_blocktime().to_bytes().unwrap()[..]));
+        }
     }
 }
 // from Owned.sol
@@ -164,19 +179,6 @@ pub extern "C" fn accept_ownership() {
     set_key("staking_rewards_data", "nominated_owner", AccountHash::new([0u8; 32]));
 }
 // from StakingRewards.sol
-#[no_mangle]
-pub extern "C" fn total_supply() {
-    let val: U256 = get_key("staking_rewards_data", "total_supply");
-    ret(val)
-}
-
-#[no_mangle]
-pub extern "C" fn balance_of() {
-    let owner: AccountHash = runtime::get_named_arg("owner");
-    let val: U256 = get_key("balances", &owner.to_string());
-    ret(val)
-}
-
 #[no_mangle]
 pub extern "C" fn get_reward_for_duration() {
     let val: U256 = get_key::<U256>("staking_rewards_data", "reward_rate").mul(get_key::<U256>("staking_rewards_data", "rewards_duration"));
@@ -297,7 +299,7 @@ pub extern "C" fn update_period_finish() {
     );
 }
 
-/// Function: recover_ERC20(token_contract_hash: ContractHash, token_amount: U256)
+/// Function: recover_erc20(token_contract_hash: ContractHash, token_amount: U256)
 ///
 /// # Purpose
 /// Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders.
@@ -305,7 +307,7 @@ pub extern "C" fn update_period_finish() {
 /// * `token_contract_hash` - a `ContractHash` which holds the token's contract hash.
 /// * `token_amount` - a `U256` which holds the token's amount.
 #[no_mangle]
-pub extern "C" fn recover_ERC20() {
+pub extern "C" fn recover_erc20() {
     _only_owner();
     let token_contract_hash: ContractHash = runtime::get_named_arg("token_contract_hash");
     let token_amount: U256 = runtime::get_named_arg("token_amount");
@@ -444,89 +446,89 @@ pub extern "C" fn call() {
     storage::dictionary_put(
         dictionary_seed_uref,
         "rewards_token",
-        storage::new_uref(rewards_token),
+        rewards_token,
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "staking_token",
-        storage::new_uref(staking_token),
+        staking_token,
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "period_finish",
-        storage::new_uref(U256::from(0)),
+        U256::from(0),
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "reward_rate",
-        storage::new_uref(U256::from(0)),
+        U256::from(0),
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "rewards_duration",
-        storage::new_uref(U256::from(604800)),
+        U256::from(604800),
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "last_update_time",
-        storage::new_uref(U256::from(0)),
+        U256::from(0),
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "reward_per_token_stored",
-        storage::new_uref(U256::from(0)),
+        U256::from(0),
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "total_supply",
-        storage::new_uref(U256::from(0)),
+        U256::from(0),
     );
     // from RewardsDistributionRecipient.sol
     storage::dictionary_put(
         dictionary_seed_uref,
         "rewards_distribution",
-        storage::new_uref(rewards_distribution),
+        rewards_distribution,
     );
     // from Pausable.sol
     storage::dictionary_put(
         dictionary_seed_uref,
         "last_pause_time",
-        storage::new_uref(U256::from(0)),
+        U256::from(0),
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "paused",
-        storage::new_uref(false),
+        false,
     );
     // from Owned.sol
     storage::dictionary_put(
         dictionary_seed_uref,
         "owner",
-        storage::new_uref(owner),
+        owner,
     );
     storage::dictionary_put(
         dictionary_seed_uref,
         "nominated_owner",
-        storage::new_uref(nominated_owner),
+        nominated_owner,
     );
     // from ReentrancyGuard.sol
     // _entered and _not_entered are constants, so we don't need to use them
     storage::dictionary_put(
         dictionary_seed_uref,
         "status",
-        storage::new_uref(U256::from(1)),
+        U256::from(1),
     );
     let rewards_seed_uref = storage::new_dictionary("rewards").unwrap_or_revert();
     storage::dictionary_put(
         rewards_seed_uref,
         &runtime::get_caller().to_string(),
-        storage::new_uref(U256::from(0)),
+        U256::from(0),
     );
     let user_reward_per_token_paid_seed_uref = storage::new_dictionary("user_reward_per_token_paid").unwrap_or_revert();
     storage::dictionary_put(
         user_reward_per_token_paid_seed_uref,
         &runtime::get_caller().to_string(),
-        storage::new_uref(U256::from(0)),
+        U256::from(0),
     );
 
     let mut named_keys = NamedKeys::new();
@@ -610,7 +612,7 @@ pub extern "C" fn call() {
         CLType::Unit
     ));
     entry_points.add_entry_point(endpoint(
-        "recover_ERC20", 
+        "recover_erc20", 
         vec![
             Parameter::new("token_contract_hash", ContractHash::cl_type()),
             Parameter::new("token_amount", CLType::U256)
