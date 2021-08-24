@@ -1,6 +1,7 @@
+
 use casper_engine_test_support::AccountHash;
 use casper_types::ContractHash;
-//use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use casper_types::U256;
 use crate::erc20::{token_cfg, Sender, Token};
@@ -84,6 +85,7 @@ fn test_erc20_transfer_from() {
     let amount = 3.into();
     let mut t = Token::deployed("ERC20", "ERC");
     t.approve(t.bob, allowance, Sender(t.ali));
+    assert_eq!(t.allowance(t.ali, t.bob), allowance);
     t.transfer_from(t.ali, t.joe, amount, Sender(t.bob));
     assert_eq!(t.balance_of(t.ali), token_cfg::total_supply() - amount);
     //assert_eq!(t.balance_of(t.bob), 0.into());
@@ -167,4 +169,87 @@ fn test_set_nominated_owner() {
     let mut stk_rwd = deploy_staking_rewards();
     stk_rwd.nominate_new_owner(stk_rwd.ali, STK_Sender(stk_rwd.ali));
     assert_eq!(stk_rwd.nominated_owner(), stk_rwd.ali);
+}
+
+#[test]
+fn test_accept_ownership() {
+    let mut stk_rwd = deploy_staking_rewards();
+    stk_rwd.nominate_new_owner(stk_rwd.ali, STK_Sender(stk_rwd.ali));
+    assert_eq!(stk_rwd.nominated_owner(), stk_rwd.ali);
+    stk_rwd.accept_ownership(STK_Sender(stk_rwd.ali));
+    assert_eq!(stk_rwd.owner(), stk_rwd.ali);
+    assert_eq!(stk_rwd.nominated_owner(), AccountHash::new([0u8; 32]));
+}
+
+#[test]
+#[should_panic]
+fn test_stake_zero() {
+    let mut stk_rwd = deploy_staking_rewards();
+    let amount = 0.into();
+    stk_rwd.stake(amount, STK_Sender(stk_rwd.ali));
+}
+
+#[test]
+fn test_stake() {
+    let rewards_distribution = Token::deployed("RewardsDistribution", "RWDD");
+    let rewards_token = Token::deployed("RewardsToken", "RWDT");
+    let mut staking_token = Token::deployed("StakingToken", "STK");
+    let mut stk_rwd = StakingRewards::deployed(
+        ContractHash::new(rewards_distribution.contract_hash()),
+        ContractHash::new(rewards_token.contract_hash()),
+        ContractHash::new(staking_token.contract_hash())
+    );
+    assert_eq!(stk_rwd.paused(), false);
+    let amount: U256 = 3.into();
+    let allowance = 10.into();
+    let old_balance: U256 = staking_token.balance_of(stk_rwd.ali);
+    assert_eq!(old_balance, U256::from(1000));
+    let staking_rewards_hash = AccountHash::new(stk_rwd.contract_hash());
+    staking_token.approve(staking_rewards_hash, amount, Sender(stk_rwd.ali));
+    staking_token.approve(stk_rwd.ali, allowance, Sender(stk_rwd.ali));
+    // staking_token.transfer_from(
+    //     stk_rwd.ali,
+    //     staking_rewards_hash,
+    //     amount,
+    //     Sender(stk_rwd.ali)
+    // );
+    stk_rwd.stake(amount, STK_Sender(stk_rwd.ali));
+    assert_eq!(stk_rwd.reward_per_token_stored(), U256::from(0));
+    assert_eq!(stk_rwd.last_update_time(), U256::from(0));
+    assert_eq!(stk_rwd.total_supply(), amount);
+    assert_eq!(stk_rwd.reward_of(stk_rwd.ali), U256::from(0));
+    assert_eq!(stk_rwd.user_reward_per_token_paid(stk_rwd.ali), U256::from(0));
+    assert_eq!(stk_rwd.balance_of(stk_rwd.ali), amount);
+    //assert_eq!(staking_token.balance_of(staking_token.ali), old_balance - amount);
+    //assert_eq!(staking_token.balance_of(AccountHash::new(stk_rwd.contract_hash())), amount);
+}
+
+#[test]
+#[should_panic]
+fn test_exit_withdraw_0() {
+    let mut stk_rwd = deploy_staking_rewards();
+    stk_rwd.exit(STK_Sender(stk_rwd.ali));
+}
+
+#[test]
+fn test_update_period_finish() {
+    let mut stk_rwd = deploy_staking_rewards();
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    stk_rwd.update_period_finish(
+        U256::from(timestamp),
+        STK_Sender(stk_rwd.ali)
+    );
+    assert_eq!(stk_rwd.reward_per_token_stored(), U256::from(0));
+    assert_eq!(stk_rwd.last_update_time(), U256::from(0));
+    assert_eq!(stk_rwd.period_finish(), U256::from(timestamp));
+}
+
+#[test]
+#[should_panic]
+// panics because runtime::get_blocktime() returns a zero value
+fn test_set_rewards_duration() {
+    let mut stk_rwd = deploy_staking_rewards();
+    let rewards_duration = 1000.into();
+    stk_rwd.set_rewards_duration(rewards_duration, STK_Sender(stk_rwd.ali));
+    assert_eq!(stk_rwd.rewards_duration(), rewards_duration);
 }

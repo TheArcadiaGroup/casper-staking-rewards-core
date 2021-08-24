@@ -72,7 +72,7 @@ impl Token {
     fn query_contract<T: CLTyped + FromBytes>(&self, name: &str) -> Option<T> {
         match self
             .context
-            .query(self.ali, &[token_cfg::NAME.to_string(), name.to_string()])
+            .query(self.ali, &[self.name.clone(), name.to_string()])
         {
             Err(_) => None,
             Ok(maybe_value) => {

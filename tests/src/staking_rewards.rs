@@ -47,7 +47,7 @@ impl StakingRewards {
         }
     }
 
-    fn contract_hash(&self) -> Hash {
+    pub fn contract_hash(&self) -> Hash {
         self.context
             .query(self.ali, &[format!("{}_hash", "StakingRewards")])
             .unwrap_or_else(|_| panic!("{} contract not found", "StakingRewards"))
@@ -148,7 +148,7 @@ impl StakingRewards {
         ).unwrap()
     }
 
-    pub fn user_reward_per_token_paid(&self, owner: AccountHash) -> AccountHash {
+    pub fn user_reward_per_token_paid(&self, owner: AccountHash) -> U256 {
         self.query_contract_dictionary(
             self.ali,
             &self.context,
