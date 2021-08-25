@@ -101,35 +101,28 @@ fn test_erc20_transfer_from_too_much() {
     t.transfer_from(t.ali, t.joe, amount, Sender(t.bob));
 }
 
-// ------------ START - StakingRewards Tests ------------
+// // ------------ START - StakingRewards Tests ------------
 
 fn deploy_staking_rewards() -> StakingRewards {
     let rewards_distribution = Token::deployed("RewardsDistribution", "RWDD");
     let rewards_token = Token::deployed("RewardsToken", "RWDT");
     let staking_token = Token::deployed("StakingToken", "STK");
     let stk_rwd = StakingRewards::deployed(
-        ContractHash::new(rewards_distribution.contract_hash()),
-        ContractHash::new(rewards_token.contract_hash()),
-        ContractHash::new(staking_token.contract_hash())
+        rewards_distribution,
+        rewards_token,
+        staking_token
     );
     stk_rwd
 }
 
 #[test]
 fn test_staking_rewards_deploy() {
-    let rewards_distribution = Token::deployed("RewardsDistribution", "RWDD");
-    let rewards_token = Token::deployed("RewardsToken", "RWDT");
-    let staking_token = Token::deployed("StakingToken", "STK");
-    let stk_rwd = StakingRewards::deployed(
-        ContractHash::new(rewards_distribution.contract_hash()),
-        ContractHash::new(rewards_token.contract_hash()),
-        ContractHash::new(staking_token.contract_hash())
-    );
+    let stk_rwd = deploy_staking_rewards();
     assert_eq!(stk_rwd.owner(), stk_rwd.ali);
     assert_eq!(stk_rwd.nominated_owner(), AccountHash::new([0u8; 32]));
-    assert_eq!(stk_rwd.rewards_distribution(), ContractHash::new(rewards_distribution.contract_hash()));
-    assert_eq!(stk_rwd.rewards_token(), ContractHash::new(rewards_token.contract_hash()));
-    assert_eq!(stk_rwd.staking_token(), ContractHash::new(staking_token.contract_hash()));
+    assert_eq!(stk_rwd.rewards_distribution(), ContractHash::new(stk_rwd.rewards_distribution.contract_hash()));
+    assert_eq!(stk_rwd.rewards_token(), ContractHash::new(stk_rwd.rewards_token.contract_hash()));
+    assert_eq!(stk_rwd.staking_token(), ContractHash::new(stk_rwd.staking_token.contract_hash()));
     assert_eq!(stk_rwd.period_finish(), U256::from(0));
     assert_eq!(stk_rwd.reward_rate(), U256::from(0));
     assert_eq!(stk_rwd.rewards_duration(), U256::from(604800));
@@ -191,23 +184,16 @@ fn test_stake_zero() {
 
 #[test]
 fn test_stake() {
-    let rewards_distribution = Token::deployed("RewardsDistribution", "RWDD");
-    let rewards_token = Token::deployed("RewardsToken", "RWDT");
-    let mut staking_token = Token::deployed("StakingToken", "STK");
-    let mut stk_rwd = StakingRewards::deployed(
-        ContractHash::new(rewards_distribution.contract_hash()),
-        ContractHash::new(rewards_token.contract_hash()),
-        ContractHash::new(staking_token.contract_hash())
-    );
+    let mut stk_rwd = deploy_staking_rewards();
     assert_eq!(stk_rwd.paused(), false);
     let amount: U256 = 3.into();
     let allowance = 10.into();
-    let old_balance: U256 = staking_token.balance_of(stk_rwd.ali);
+    let old_balance: U256 = stk_rwd.staking_token.balance_of(stk_rwd.ali);
     assert_eq!(old_balance, U256::from(1000));
     let staking_rewards_hash = AccountHash::new(stk_rwd.contract_hash());
-    staking_token.approve(staking_rewards_hash, amount, Sender(stk_rwd.ali));
-    staking_token.approve(stk_rwd.ali, allowance, Sender(stk_rwd.ali));
-    // staking_token.transfer_from(
+    stk_rwd.staking_token.approve(staking_rewards_hash, amount, Sender(stk_rwd.ali));
+    stk_rwd.staking_token.approve(stk_rwd.ali, allowance, Sender(stk_rwd.ali));
+    // stk_rwd.staking_token.transfer_from(
     //     stk_rwd.ali,
     //     staking_rewards_hash,
     //     amount,
@@ -220,8 +206,8 @@ fn test_stake() {
     assert_eq!(stk_rwd.reward_of(stk_rwd.ali), U256::from(0));
     assert_eq!(stk_rwd.user_reward_per_token_paid(stk_rwd.ali), U256::from(0));
     assert_eq!(stk_rwd.balance_of(stk_rwd.ali), amount);
-    //assert_eq!(staking_token.balance_of(staking_token.ali), old_balance - amount);
-    //assert_eq!(staking_token.balance_of(AccountHash::new(stk_rwd.contract_hash())), amount);
+    //assert_eq!(stk_rwd.staking_token.balance_of(staking_token.ali), old_balance - amount);
+    //assert_eq!(stk_rwd.staking_token.balance_of(AccountHash::new(stk_rwd.contract_hash())), amount);
 }
 
 #[test]
@@ -247,9 +233,64 @@ fn test_update_period_finish() {
 #[test]
 #[should_panic]
 // panics because runtime::get_blocktime() returns a zero value
+// which I believe is related to the contract not being deployed in testnet.
 fn test_set_rewards_duration() {
     let mut stk_rwd = deploy_staking_rewards();
     let rewards_duration = 1000.into();
     stk_rwd.set_rewards_duration(rewards_duration, STK_Sender(stk_rwd.ali));
     assert_eq!(stk_rwd.rewards_duration(), rewards_duration);
+}
+
+#[test]
+#[should_panic]
+// panics because call_contract() gives me KeyNotFound error
+// which I believe is related to the contract not being deployed in testnet.
+fn test_recover_erc20() {
+    let mut stk_rwd = deploy_staking_rewards();
+    let amount: U256 = 3.into();
+    let initial_balance: U256 = stk_rwd.rewards_distribution.balance_of(stk_rwd.ali);
+    let staking_rewards_hash = AccountHash::new(stk_rwd.contract_hash());
+    stk_rwd.rewards_distribution.transfer(staking_rewards_hash, amount, Sender(stk_rwd.ali));
+    assert_eq!(
+        stk_rwd.rewards_distribution.balance_of(stk_rwd.ali),
+        initial_balance - amount
+    );
+    assert_eq!(
+        stk_rwd.rewards_distribution.balance_of(staking_rewards_hash),
+        amount
+    );
+    let rewards_distribution_hash = ContractHash::new(stk_rwd.rewards_distribution.contract_hash());
+    println!("{}", rewards_distribution_hash);
+    stk_rwd.recover_erc20(
+        rewards_distribution_hash,
+        amount,
+        STK_Sender(stk_rwd.ali)
+    );
+    // stk_rwd.rewards_distribution.approve(stk_rwd.ali, amount, Sender(staking_rewards_hash));
+    // stk_rwd.rewards_distribution.transfer_from(
+    //     staking_rewards_hash,
+    //     stk_rwd.ali,
+    //     amount,
+    //     Sender(stk_rwd.ali)
+    // );
+    assert_eq!(
+        stk_rwd.rewards_distribution.balance_of(stk_rwd.ali),
+        initial_balance
+    );
+    assert_eq!(
+        stk_rwd.rewards_distribution.balance_of(staking_rewards_hash),
+        U256::from(0)
+    );
+}
+
+#[test]
+#[should_panic]
+fn test_recover_staking_token() {
+    let mut stk_rwd = deploy_staking_rewards();
+    let amount: U256 = 3.into();
+    stk_rwd.recover_erc20(
+        ContractHash::new(stk_rwd.staking_token.contract_hash()),
+        amount,
+        STK_Sender(stk_rwd.ali)
+    );
 }

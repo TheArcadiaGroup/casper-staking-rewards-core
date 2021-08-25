@@ -1,5 +1,6 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{AsymmetricType, CLTyped, ContractHash, PublicKey, RuntimeArgs, U256, U512, account::AccountHash, bytesrepr::FromBytes, runtime_args};
+use crate::erc20::Token;
 
 // contains methods that can simulate a real-world deployment (storing the contract in the blockchain)
 // and transactions to invoke the methods in the contract.
@@ -11,13 +12,16 @@ pub struct StakingRewards {
     pub ali: AccountHash,
     pub bob: AccountHash,
     pub joe: AccountHash,
+    pub rewards_distribution: Token,
+    pub rewards_token: Token,
+    pub staking_token: Token,
 }
 
 impl StakingRewards {
     pub fn deployed(
-        rewards_distribution: ContractHash,
-        rewards_token: ContractHash,
-        staking_token: ContractHash
+        rewards_distribution: Token,
+        rewards_token: Token,
+        staking_token: Token
     ) -> StakingRewards {
         let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
@@ -30,9 +34,9 @@ impl StakingRewards {
         let session_code = Code::from("staking_rewards.wasm");
         let session_args = runtime_args! {
             "owner" => ali.to_account_hash(),
-            "rewards_distribution" => rewards_distribution,
-            "rewards_token" => rewards_token,
-            "staking_token" => staking_token
+            "rewards_distribution" => ContractHash::new(rewards_distribution.contract_hash()),
+            "rewards_token" => ContractHash::new(rewards_token.contract_hash()),
+            "staking_token" => ContractHash::new(staking_token.contract_hash())
         };
         let session = SessionBuilder::new(session_code, session_args)
             .with_address((&ali).to_account_hash())
@@ -44,6 +48,9 @@ impl StakingRewards {
             ali: ali.to_account_hash(),
             bob: bob.to_account_hash(),
             joe: joe.to_account_hash(),
+            rewards_distribution: rewards_distribution,
+            rewards_token: rewards_token,
+            staking_token: staking_token
         }
     }
 

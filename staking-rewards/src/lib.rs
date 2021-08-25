@@ -205,7 +205,7 @@ pub extern "C" fn stake() {
     set_key("staking_rewards_data", "total_supply", get_key::<U256>("staking_rewards_data", "total_supply").add(amount));
     let old_balance: U256 = get_key("balances", &runtime::get_caller().to_string());
     set_key("balances", &runtime::get_caller().to_string(), old_balance.add(amount));
-    let current_contract_hash: ContractHash = get_key_runtime::<ContractHash>("StakingRewards_hash");
+    let current_contract_hash: ContractHash = get_key_runtime::<ContractHash>("StakingRewards");
     // added the following temporary if clause to avoid the panic in my unit test
     if (current_contract_hash != ContractHash::new([0u8; 32])) {
         _safe_transfer_from(
@@ -258,13 +258,13 @@ pub extern "C" fn notify_reward_amount() {
     // This keeps the reward rate in the right range, preventing overflows due to
     // very high values of rewardRate in the earned and rewardsPerToken functions;
     // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-    let mut named_args = RuntimeArgs::new();
     let current_contract_hash: ContractHash = get_key_runtime::<ContractHash>("StakingRewards");
-    named_args.insert("account", AccountHash::new(current_contract_hash.value())).unwrap();
     let balance: U256 = call_contract(
         get_key::<ContractHash>("staking_rewards_data", "rewards_token"),
         "balance_of",
-        named_args.clone()
+        runtime_args! {
+            "account" => AccountHash::new(current_contract_hash.value())
+        }
     );
     if (
         get_key::<U256>("staking_rewards_data", "reward_rate") > 
@@ -697,22 +697,26 @@ fn _free_entrancy() {
 }
 
 fn _safe_transfer(token: ContractHash, to: AccountHash, value: U256) {
-    // 1 - prepare runtime args for the transfer function
-    let mut transfer_args: RuntimeArgs = RuntimeArgs::new();
-    transfer_args.insert("recipient", to).expect("Couldn't insert the recipient argument @_safe_transfer");
-    transfer_args.insert("amount", value).expect("Couldn't insert the amount argument @_safe_transfer");
-    // 2 - call the token's contract transfer function
-    runtime::call_contract::<()>(token, "transfer", transfer_args);
+    runtime::call_contract::<()>(
+        token,
+        "transfer",
+        runtime_args! {
+            "recipient" => to,
+            "amount" => value
+        },
+    );
 }
 
 fn _safe_transfer_from(token: ContractHash, from: AccountHash, to: AccountHash, value: U256) {
-    // 1 - prepare runtime args for the transfer function
-    let mut transfer_args: RuntimeArgs = RuntimeArgs::new();
-    transfer_args.insert("owner", from).expect("Couldn't insert the owner argument @_safe_transfer_from");
-    transfer_args.insert("recipient", to).expect("Couldn't insert the recipient argument @_safe_transfer_from");
-    transfer_args.insert("amount", value).expect("Couldn't insert the amount argument @_safe_transfer_from");
-    // 2 - call the token's contract transfer function
-    runtime::call_contract::<()>(token, "transfer_from", transfer_args);
+    runtime::call_contract::<()>(
+        token,
+        "transfer_from",
+        runtime_args! {
+            "owner" => from,
+            "recipient" => to,
+            "amount" => value
+        },
+    );
 }
 /* ✖✖✖✖✖✖✖✖✖✖✖ Internal Functions - End ✖✖✖✖✖✖✖✖✖✖✖ */
 
