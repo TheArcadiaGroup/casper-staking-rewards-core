@@ -34,9 +34,9 @@ impl StakingRewards {
         let session_code = Code::from("staking_rewards.wasm");
         let session_args = runtime_args! {
             "owner" => ali.to_account_hash(),
-            "rewards_distribution" => ContractHash::new(rewards_distribution.contract_hash()),
-            "rewards_token" => ContractHash::new(rewards_token.contract_hash()),
-            "staking_token" => ContractHash::new(staking_token.contract_hash())
+            "rewards_distribution" => ContractHash::new(rewards_distribution.contract_hash()).to_formatted_string(),
+            "rewards_token" => ContractHash::new(rewards_token.contract_hash()).to_formatted_string(),
+            "staking_token" => ContractHash::new(staking_token.contract_hash()).to_formatted_string()
         };
         let session = SessionBuilder::new(session_code, session_args)
             .with_address((&ali).to_account_hash())

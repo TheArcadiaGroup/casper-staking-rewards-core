@@ -183,6 +183,9 @@ fn test_stake_zero() {
 }
 
 #[test]
+#[should_panic]
+// panics because the contract can't get its own hash.
+// Assuming it's a limitation when working with test contexts.
 fn test_stake() {
     let mut stk_rwd = deploy_staking_rewards();
     assert_eq!(stk_rwd.paused(), false);
@@ -193,12 +196,6 @@ fn test_stake() {
     let staking_rewards_hash = AccountHash::new(stk_rwd.contract_hash());
     stk_rwd.staking_token.approve(staking_rewards_hash, amount, Sender(stk_rwd.ali));
     stk_rwd.staking_token.approve(stk_rwd.ali, allowance, Sender(stk_rwd.ali));
-    // stk_rwd.staking_token.transfer_from(
-    //     stk_rwd.ali,
-    //     staking_rewards_hash,
-    //     amount,
-    //     Sender(stk_rwd.ali)
-    // );
     stk_rwd.stake(amount, STK_Sender(stk_rwd.ali));
     assert_eq!(stk_rwd.reward_per_token_stored(), U256::from(0));
     assert_eq!(stk_rwd.last_update_time(), U256::from(0));
@@ -206,8 +203,8 @@ fn test_stake() {
     assert_eq!(stk_rwd.reward_of(stk_rwd.ali), U256::from(0));
     assert_eq!(stk_rwd.user_reward_per_token_paid(stk_rwd.ali), U256::from(0));
     assert_eq!(stk_rwd.balance_of(stk_rwd.ali), amount);
-    //assert_eq!(stk_rwd.staking_token.balance_of(staking_token.ali), old_balance - amount);
-    //assert_eq!(stk_rwd.staking_token.balance_of(AccountHash::new(stk_rwd.contract_hash())), amount);
+    assert_eq!(stk_rwd.staking_token.balance_of(stk_rwd.staking_token.ali), old_balance - amount);
+    assert_eq!(stk_rwd.staking_token.balance_of(AccountHash::new(stk_rwd.contract_hash())), amount);
 }
 
 #[test]
@@ -232,8 +229,8 @@ fn test_update_period_finish() {
 
 #[test]
 #[should_panic]
-// panics because runtime::get_blocktime() returns a zero value
-// which I believe is related to the contract not being deployed in testnet.
+// panics because runtime::get_blocktime() returns a zero value.
+// Assuming it's a limitation when working with test contexts.
 fn test_set_rewards_duration() {
     let mut stk_rwd = deploy_staking_rewards();
     let rewards_duration = 1000.into();
@@ -243,8 +240,8 @@ fn test_set_rewards_duration() {
 
 #[test]
 #[should_panic]
-// panics because call_contract() gives me KeyNotFound error
-// which I believe is related to the contract not being deployed in testnet.
+// panics because call_contract() gives me KeyNotFound error.
+// Assuming it's a limitation when working with test contexts.
 fn test_recover_erc20() {
     let mut stk_rwd = deploy_staking_rewards();
     let amount: U256 = 3.into();

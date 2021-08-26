@@ -175,13 +175,22 @@ pub extern "C" fn nominate_new_owner() {
 #[no_mangle]
 pub extern "C" fn accept_ownership() {
     _only_nominated_owner();
-    set_key("staking_rewards_data", "owner", get_key::<AccountHash>("staking_rewards_data", "nominated_owner"));
-    set_key("staking_rewards_data", "nominated_owner", AccountHash::new([0u8; 32]));
+    set_key(
+        "staking_rewards_data",
+        "owner",
+        get_key::<AccountHash>("staking_rewards_data", "nominated_owner")
+    );
+    set_key(
+        "staking_rewards_data",
+        "nominated_owner",
+        AccountHash::new([0u8; 32])
+    );
 }
 // from StakingRewards.sol
 #[no_mangle]
 pub extern "C" fn get_reward_for_duration() {
-    let val: U256 = get_key::<U256>("staking_rewards_data", "reward_rate").mul(get_key::<U256>("staking_rewards_data", "rewards_duration"));
+    let val: U256 = get_key::<U256>("staking_rewards_data", "reward_rate")
+    .mul(get_key::<U256>("staking_rewards_data", "rewards_duration"));
     ret(val)
 }
 
@@ -202,19 +211,27 @@ pub extern "C" fn stake() {
         _free_entrancy();
         runtime::revert(Error::CannotStakeZero);
     }
-    set_key("staking_rewards_data", "total_supply", get_key::<U256>("staking_rewards_data", "total_supply").add(amount));
+    set_key(
+        "staking_rewards_data",
+        "total_supply",
+        get_key::<U256>("staking_rewards_data", "total_supply").add(amount)
+    );
     let old_balance: U256 = get_key("balances", &runtime::get_caller().to_string());
-    set_key("balances", &runtime::get_caller().to_string(), old_balance.add(amount));
-    let current_contract_hash: ContractHash = get_key_runtime::<ContractHash>("StakingRewards");
-    // added the following temporary if clause to avoid the panic in my unit test
-    if (current_contract_hash != ContractHash::new([0u8; 32])) {
-        _safe_transfer_from(
-            get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
-            runtime::get_caller(), 
-            AccountHash::new(current_contract_hash.value()),
-            amount
-        );
-    }
+    set_key(
+        "balances",
+        &runtime::get_caller().to_string(),
+        old_balance.add(amount)
+    );
+    let current_contract_hash: ContractHash = runtime::get_key("StakingRewards")
+        .and_then(Key::into_hash)
+        .expect("should have key")
+        .into();
+    _safe_transfer_from(
+        get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
+        runtime::get_caller(), 
+        AccountHash::new(current_contract_hash.value()),
+        amount
+    );
     _free_entrancy();
 }
 
@@ -241,7 +258,11 @@ pub extern "C" fn notify_reward_amount() {
     _update_reward(AccountHash::new([0u8; 32]));
     let reward: U256 = runtime::get_named_arg("reward");
     if (U256::from(u64::from(runtime::get_blocktime())) >= get_key::<U256>("staking_rewards_data", "period_finish")) {
-        set_key("staking_rewards_data", "reward_rate", reward.div(get_key::<U256>("staking_rewards_data", "rewards_duration")));
+        set_key(
+            "staking_rewards_data",
+            "reward_rate",
+            reward.div(get_key::<U256>("staking_rewards_data", "rewards_duration"))
+        );
     }
     else {
         let remaining: U256 = get_key::<U256>("staking_rewards_data", "period_finish").sub(
@@ -258,7 +279,10 @@ pub extern "C" fn notify_reward_amount() {
     // This keeps the reward rate in the right range, preventing overflows due to
     // very high values of rewardRate in the earned and rewardsPerToken functions;
     // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-    let current_contract_hash: ContractHash = get_key_runtime::<ContractHash>("StakingRewards");
+    let current_contract_hash: ContractHash = runtime::get_key("StakingRewards")
+        .and_then(Key::into_hash)
+        .expect("should have key")
+        .into();
     let balance: U256 = call_contract(
         get_key::<ContractHash>("staking_rewards_data", "rewards_token"),
         "balance_of",
@@ -333,7 +357,10 @@ pub extern "C" fn recover_erc20() {
 #[no_mangle]
 pub extern "C" fn set_rewards_duration() {
     _only_owner();
-    if (U256::from(u64::from(runtime::get_blocktime())) <= get_key::<U256>("staking_rewards_data", "period_finish")) {
+    if (
+        U256::from(u64::from(runtime::get_blocktime())) <= 
+        get_key::<U256>("staking_rewards_data", "period_finish")
+    ) {
         runtime::revert(Error::InCompletePreviousRewardsPeriod);
     }
     set_key(
@@ -407,9 +434,17 @@ pub fn withdraw(amount: U256) {
         _free_entrancy();
         runtime::revert(Error::CannotWithdrawZero);
     }
-    set_key("staking_rewards_data", "total_supply", get_key::<U256>("staking_rewards_data", "total_supply").sub(amount));
+    set_key(
+        "staking_rewards_data",
+        "total_supply",
+        get_key::<U256>("staking_rewards_data", "total_supply").sub(amount)
+    );
     let old_balance: U256 = get_key("balances", &runtime::get_caller().to_string());
-    set_key("balances", &runtime::get_caller().to_string(), old_balance.sub(amount));
+    set_key(
+        "balances",
+        &runtime::get_caller().to_string(),
+        old_balance.sub(amount)
+    );
     _safe_transfer(
         get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
         runtime::get_caller(),
@@ -425,7 +460,11 @@ pub fn get_reward() {
     _update_reward(runtime::get_caller());
     let reward: U256 = get_key("rewards", &runtime::get_caller().to_string());
     if (reward > U256::from(0)) {
-        set_key("rewards", &runtime::get_caller().to_string(), U256::from(0));
+        set_key(
+            "rewards",
+            &runtime::get_caller().to_string(),
+            U256::from(0)
+        );
         _safe_transfer(
             get_key::<ContractHash>("staking_rewards_data", "rewards_token"), 
             runtime::get_caller(),
@@ -441,9 +480,15 @@ pub fn get_reward() {
 pub extern "C" fn call() {
     let owner: AccountHash = runtime::get_named_arg("owner");
     let nominated_owner: AccountHash = AccountHash::new([0u8; 32]);
-    let rewards_distribution: ContractHash = runtime::get_named_arg("rewards_distribution");
-    let rewards_token: ContractHash = runtime::get_named_arg("rewards_token");
-    let staking_token: ContractHash = runtime::get_named_arg("staking_token");
+    let rewards_distribution = ContractHash::from_formatted_str(
+        runtime::get_named_arg::<String>("rewards_distribution").as_str()
+    ).unwrap();
+    let rewards_token = ContractHash::from_formatted_str(
+        runtime::get_named_arg::<String>("rewards_token").as_str()
+    ).unwrap();
+    let staking_token = ContractHash::from_formatted_str(
+        runtime::get_named_arg::<String>("staking_token").as_str()
+    ).unwrap();
 
     let dictionary_seed_uref = storage::new_dictionary("staking_rewards_data").unwrap_or_revert();
     storage::dictionary_put(
@@ -677,11 +722,27 @@ fn _only_rewards_distribution() {
 }
 
 fn _update_reward(account: AccountHash) {
-    set_key("staking_rewards_data", "reward_per_token_stored", reward_per_token());
-    set_key("staking_rewards_data", "last_update_time", last_time_reward_applicable());
+    set_key(
+        "staking_rewards_data",
+        "reward_per_token_stored",
+        reward_per_token()
+    );
+    set_key(
+        "staking_rewards_data",
+        "last_update_time",
+        last_time_reward_applicable()
+    );
     if (account != AccountHash::new([0u8; 32])) {
-        set_key("rewards", &account.to_string(), earned(account));
-        set_key("user_reward_per_token_paid", &account.to_string(), get_key::<U256>("staking_rewards_data", "reward_per_token_stored"));
+        set_key(
+            "rewards",
+            &account.to_string(),
+            earned(account)
+        );
+        set_key(
+            "user_reward_per_token_paid",
+            &account.to_string(),
+            get_key::<U256>("staking_rewards_data", "reward_per_token_stored")
+        );
     }
 }
 
@@ -722,16 +783,6 @@ fn _safe_transfer_from(token: ContractHash, from: AccountHash, to: AccountHash, 
 
 fn ret<T: CLTyped + ToBytes>(value: T) {
     runtime::ret(CLValue::from_t(value).unwrap_or_revert())
-}
-
-fn get_key_runtime<T: FromBytes + CLTyped + Default>(name: &str) -> T {
-    match runtime::get_key(name) {
-        None => Default::default(),
-        Some(value) => {
-            let key = value.try_into().unwrap_or_revert();
-            storage::read(key).unwrap_or_revert().unwrap_or_revert()
-        }
-    }
 }
 
 fn get_key<T: FromBytes + CLTyped + Default>(dictionary_name: &str, key: &str) -> T {
