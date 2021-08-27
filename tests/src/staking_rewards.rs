@@ -247,7 +247,7 @@ impl StakingRewards {
             sender,
             "set_rewards_distribution",
             runtime_args! {
-                "rewards_distribution" => rewards_distribution
+                "rewards_distribution" => rewards_distribution.to_formatted_string()
             },
         )
     }
@@ -365,7 +365,7 @@ impl StakingRewards {
             sender,
             "recover_erc20",
             runtime_args! {
-                "token_contract_hash" => token_contract_hash,
+                "token_contract_hash" => token_contract_hash.to_formatted_string(),
                 "token_amount" => token_amount
             },
         )

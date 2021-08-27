@@ -144,7 +144,9 @@ pub extern "C" fn nominated_owner() {
 #[no_mangle]
 pub extern "C" fn set_rewards_distribution() {
     _only_owner();
-    let rewards_distribution: ContractHash = runtime::get_named_arg("rewards_distribution");
+    let rewards_distribution = ContractHash::from_formatted_str(
+        runtime::get_named_arg::<String>("rewards_distribution").as_str()
+    ).unwrap();
     set_key("staking_rewards_data", "rewards_distribution", rewards_distribution);
 }
 // from Pausable.sol
@@ -326,17 +328,19 @@ pub extern "C" fn update_period_finish() {
     );
 }
 
-/// Function: recover_erc20(token_contract_hash: ContractHash, token_amount: U256)
+/// Function: recover_erc20(token_contract_hash: String, token_amount: U256)
 ///
 /// # Purpose
 /// Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders.
 /// # Arguments
-/// * `token_contract_hash` - a `ContractHash` which holds the token's contract hash.
+/// * `token_contract_hash` - a `String` which holds the token's contract hash.
 /// * `token_amount` - a `U256` which holds the token's amount.
 #[no_mangle]
 pub extern "C" fn recover_erc20() {
     _only_owner();
-    let token_contract_hash: ContractHash = runtime::get_named_arg("token_contract_hash");
+    let token_contract_hash = ContractHash::from_formatted_str(
+        runtime::get_named_arg::<String>("token_contract_hash").as_str()
+    ).unwrap();
     let token_amount: U256 = runtime::get_named_arg("token_amount");
     if (token_contract_hash == get_key::<ContractHash>("staking_rewards_data", "staking_token")) {
         runtime::revert(Error::CannotWithdrawTheStakingToken);
@@ -639,7 +643,7 @@ pub extern "C" fn call() {
     entry_points.add_entry_point(endpoint("rewards_distribution", vec![], ContractHash::cl_type()));
     entry_points.add_entry_point(endpoint(
         "set_rewards_distribution", 
-        vec![Parameter::new("rewards_distribution", ContractHash::cl_type())], 
+        vec![Parameter::new("rewards_distribution", CLType::String)], 
         CLType::Unit
     ));
     // from Pausable.sol
@@ -672,7 +676,7 @@ pub extern "C" fn call() {
     entry_points.add_entry_point(endpoint(
         "recover_erc20", 
         vec![
-            Parameter::new("token_contract_hash", ContractHash::cl_type()),
+            Parameter::new("token_contract_hash", CLType::String),
             Parameter::new("token_amount", CLType::U256)
             ], 
         CLType::Unit
