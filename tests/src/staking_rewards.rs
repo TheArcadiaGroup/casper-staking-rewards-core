@@ -1,5 +1,5 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
-use casper_types::{AsymmetricType, CLTyped, ContractHash, PublicKey, RuntimeArgs, U256, U512, account::AccountHash, bytesrepr::FromBytes, runtime_args};
+use casper_types::{AsymmetricType, CLTyped, ContractHash, Key, PublicKey, RuntimeArgs, U256, U512, account::AccountHash, bytesrepr::FromBytes, runtime_args};
 use crate::erc20::Token;
 
 // contains methods that can simulate a real-world deployment (storing the contract in the blockchain)
@@ -34,9 +34,10 @@ impl StakingRewards {
         let session_code = Code::from("staking_rewards.wasm");
         let session_args = runtime_args! {
             "owner" => ali.to_account_hash(),
-            "rewards_distribution" => ContractHash::new(rewards_distribution.contract_hash()).to_formatted_string(),
-            "rewards_token" => ContractHash::new(rewards_token.contract_hash()).to_formatted_string(),
-            "staking_token" => ContractHash::new(staking_token.contract_hash()).to_formatted_string()
+            // "rewards_distribution" => ContractHash::new(rewards_distribution.contract_hash()).to_formatted_string(),
+            "rewards_distribution" => Key::Hash(rewards_distribution.contract_hash()),
+            "rewards_token" => Key::Hash(rewards_token.contract_hash()),
+            "staking_token" => Key::Hash(staking_token.contract_hash())
         };
         let session = SessionBuilder::new(session_code, session_args)
             .with_address((&ali).to_account_hash())
@@ -240,14 +241,14 @@ impl StakingRewards {
     /* ✖✖✖✖✖✖✖✖✖✖✖ External functions - Start ✖✖✖✖✖✖✖✖✖✖✖ */
     pub fn set_rewards_distribution(
         &mut self,
-        rewards_distribution: ContractHash,
+        rewards_distribution: Key,
         sender: Sender
     ) {
         self.call(
             sender,
             "set_rewards_distribution",
             runtime_args! {
-                "rewards_distribution" => rewards_distribution.to_formatted_string()
+                "rewards_distribution" => rewards_distribution
             },
         )
     }
@@ -357,7 +358,7 @@ impl StakingRewards {
 
     pub fn recover_erc20(
         &mut self,
-        token_contract_hash: ContractHash,
+        token_contract_key: Key,
         token_amount: U256,
         sender: Sender
     ) {
@@ -365,7 +366,7 @@ impl StakingRewards {
             sender,
             "recover_erc20",
             runtime_args! {
-                "token_contract_hash" => token_contract_hash.to_formatted_string(),
+                "token_contract_key" => token_contract_key,
                 "token_amount" => token_amount
             },
         )

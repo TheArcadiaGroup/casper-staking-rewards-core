@@ -144,9 +144,9 @@ pub extern "C" fn nominated_owner() {
 #[no_mangle]
 pub extern "C" fn set_rewards_distribution() {
     _only_owner();
-    let rewards_distribution = ContractHash::from_formatted_str(
-        runtime::get_named_arg::<String>("rewards_distribution").as_str()
-    ).unwrap();
+    let rewards_distribution = ContractHash::from(
+        runtime::get_named_arg::<Key>("rewards_distribution").into_hash().unwrap_or_revert()
+    );
     set_key("staking_rewards_data", "rewards_distribution", rewards_distribution);
 }
 // from Pausable.sol
@@ -230,8 +230,8 @@ pub extern "C" fn stake() {
         .into();
     _safe_transfer_from(
         get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
-        runtime::get_caller(), 
-        AccountHash::new(current_contract_hash.value()),
+        Key::Hash(runtime::get_caller().value()), 
+        Key::Hash(current_contract_hash.value()),
         amount
     );
     _free_entrancy();
@@ -289,7 +289,7 @@ pub extern "C" fn notify_reward_amount() {
         get_key::<ContractHash>("staking_rewards_data", "rewards_token"),
         "balance_of",
         runtime_args! {
-            "account" => AccountHash::new(current_contract_hash.value())
+            "account" => Key::Hash(current_contract_hash.value())
         }
     );
     if (
@@ -338,16 +338,16 @@ pub extern "C" fn update_period_finish() {
 #[no_mangle]
 pub extern "C" fn recover_erc20() {
     _only_owner();
-    let token_contract_hash = ContractHash::from_formatted_str(
-        runtime::get_named_arg::<String>("token_contract_hash").as_str()
-    ).unwrap();
+    let token_contract_hash = ContractHash::from(
+        runtime::get_named_arg::<Key>("token_contract_key").into_hash().unwrap_or_revert()
+    );
     let token_amount: U256 = runtime::get_named_arg("token_amount");
     if (token_contract_hash == get_key::<ContractHash>("staking_rewards_data", "staking_token")) {
         runtime::revert(Error::CannotWithdrawTheStakingToken);
     }
     _safe_transfer(
         token_contract_hash,
-        get_key::<AccountHash>("staking_rewards_data", "owner"),
+        Key::Hash(get_key::<AccountHash>("staking_rewards_data", "owner").value()),
         token_amount
     );
 }
@@ -451,7 +451,7 @@ pub fn withdraw(amount: U256) {
     );
     _safe_transfer(
         get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
-        runtime::get_caller(),
+        Key::Hash(runtime::get_caller().value()),
         amount
     );
     _free_entrancy();
@@ -471,7 +471,7 @@ pub fn get_reward() {
         );
         _safe_transfer(
             get_key::<ContractHash>("staking_rewards_data", "rewards_token"), 
-            runtime::get_caller(),
+            Key::Hash(runtime::get_caller().value()),
             reward
         );
     }
@@ -484,15 +484,15 @@ pub fn get_reward() {
 pub extern "C" fn call() {
     let owner: AccountHash = runtime::get_named_arg("owner");
     let nominated_owner: AccountHash = AccountHash::new([0u8; 32]);
-    let rewards_distribution = ContractHash::from_formatted_str(
-        runtime::get_named_arg::<String>("rewards_distribution").as_str()
-    ).unwrap();
-    let rewards_token = ContractHash::from_formatted_str(
-        runtime::get_named_arg::<String>("rewards_token").as_str()
-    ).unwrap();
-    let staking_token = ContractHash::from_formatted_str(
-        runtime::get_named_arg::<String>("staking_token").as_str()
-    ).unwrap();
+    let rewards_distribution = ContractHash::from(
+        runtime::get_named_arg::<Key>("rewards_distribution").into_hash().unwrap_or_revert()
+    );
+    let rewards_token = ContractHash::from(
+        runtime::get_named_arg::<Key>("rewards_token").into_hash().unwrap_or_revert()
+    );
+    let staking_token = ContractHash::from(
+        runtime::get_named_arg::<Key>("staking_token").into_hash().unwrap_or_revert()
+    );
 
     let dictionary_seed_uref = storage::new_dictionary("staking_rewards_data").unwrap_or_revert();
     storage::dictionary_put(
@@ -643,7 +643,7 @@ pub extern "C" fn call() {
     entry_points.add_entry_point(endpoint("rewards_distribution", vec![], ContractHash::cl_type()));
     entry_points.add_entry_point(endpoint(
         "set_rewards_distribution", 
-        vec![Parameter::new("rewards_distribution", CLType::String)], 
+        vec![Parameter::new("rewards_distribution", CLType::Key)], 
         CLType::Unit
     ));
     // from Pausable.sol
@@ -676,7 +676,7 @@ pub extern "C" fn call() {
     entry_points.add_entry_point(endpoint(
         "recover_erc20", 
         vec![
-            Parameter::new("token_contract_hash", CLType::String),
+            Parameter::new("token_contract_hash", CLType::Key),
             Parameter::new("token_amount", CLType::U256)
             ], 
         CLType::Unit
@@ -761,7 +761,7 @@ fn _free_entrancy() {
     set_key("staking_rewards_data", "status", U256::from(1));
 }
 
-fn _safe_transfer(token: ContractHash, to: AccountHash, value: U256) {
+fn _safe_transfer(token: ContractHash, to: Key, value: U256) {
     runtime::call_contract::<()>(
         token,
         "transfer",
@@ -772,7 +772,7 @@ fn _safe_transfer(token: ContractHash, to: AccountHash, value: U256) {
     );
 }
 
-fn _safe_transfer_from(token: ContractHash, from: AccountHash, to: AccountHash, value: U256) {
+fn _safe_transfer_from(token: ContractHash, from: Key, to: Key, value: U256) {
     runtime::call_contract::<()>(
         token,
         "transfer_from",

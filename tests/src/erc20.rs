@@ -1,8 +1,5 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
-use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, CLTyped, PublicKey,
-    RuntimeArgs, U256, U512
-};
+use casper_types::{AsymmetricType, CLTyped, Key, PublicKey, RuntimeArgs, U256, U512, account::AccountHash, bytesrepr::FromBytes, runtime_args};
 
 // contains methods that can simulate a real-world deployment (storing the contract in the blockchain)
 // and transactions to invoke the methods in the contract.
@@ -26,6 +23,14 @@ pub struct Token {
     pub ali: AccountHash,
     pub bob: AccountHash,
     pub joe: AccountHash,
+}
+
+fn key_to_str(key: &Key) -> String {
+    match key {
+        Key::Account(account) => account.to_string(),
+        Key::Hash(package) => hex::encode(package),
+        _ => "UnexpectedKeyVariant".to_string()
+    }
 }
 
 impl Token {
@@ -141,22 +146,22 @@ impl Token {
         ).unwrap()
     }
 
-    pub fn balance_of(&self, account: AccountHash) -> U256 {
+    pub fn balance_of(&self, account: Key) -> U256 {
         //let key = format!("balances_{}", account);
         self.query_contract_dictionary(
             self.ali,
             &self.context,
             "balances".to_string(),
-            account.to_string()
+            key_to_str(&account)
         ).unwrap()
     }
 
-    pub fn allowance(&self, owner: AccountHash, spender: AccountHash) -> U256 {
+    pub fn allowance(&self, owner: Key, spender: Key) -> U256 {
         let key = format!("allowances_{}_{}", owner, spender);
         self.query_contract(&key).unwrap_or_default()
     }
 
-    pub fn transfer(&mut self, recipient: AccountHash, amount: U256, sender: Sender) {
+    pub fn transfer(&mut self, recipient: Key, amount: U256, sender: Sender) {
         self.call(
             sender,
             "transfer",
@@ -167,7 +172,7 @@ impl Token {
         );
     }
 
-    pub fn approve(&mut self, spender: AccountHash, amount: U256, sender: Sender) {
+    pub fn approve(&mut self, spender: Key, amount: U256, sender: Sender) {
         self.call(
             sender,
             "approve",
@@ -180,8 +185,8 @@ impl Token {
 
     pub fn transfer_from(
         &mut self,
-        owner: AccountHash,
-        recipient: AccountHash,
+        owner: Key,
+        recipient: Key,
         amount: U256,
         sender: Sender,
     ) {

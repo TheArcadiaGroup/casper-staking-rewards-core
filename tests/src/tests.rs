@@ -1,6 +1,6 @@
 
 use casper_engine_test_support::AccountHash;
-use casper_types::ContractHash;
+use casper_types::{ContractHash, Key};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use casper_types::U256;
@@ -9,18 +9,22 @@ use crate::staking_rewards::{Sender as STK_Sender, StakingRewards};
 
 // ------------ START - ERC20 Tests ------------
 
+fn to_key(account: AccountHash) -> Key {
+    Key::Hash(account.value())
+}
+
 #[test]
 fn test_erc20_deploy() {
     let t = Token::deployed("ERC20", "ERC");
     assert_eq!(t.name(), token_cfg::NAME);
     assert_eq!(t.symbol(), token_cfg::SYMBOL);
     assert_eq!(t.decimals(), token_cfg::DECIMALS);
-    assert_eq!(t.balance_of(t.ali), token_cfg::total_supply());
+    assert_eq!(t.balance_of(to_key(t.ali)), token_cfg::total_supply());
     //assert_eq!(t.balance_of(t.bob), 0.into());
-    assert_eq!(t.allowance(t.ali, t.ali), 0.into());
-    assert_eq!(t.allowance(t.ali, t.bob), 0.into());
-    assert_eq!(t.allowance(t.bob, t.ali), 0.into());
-    assert_eq!(t.allowance(t.bob, t.bob), 0.into());
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.ali)), 0.into());
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.bob)), 0.into());
+    assert_eq!(t.allowance(to_key(t.bob), to_key(t.ali)), 0.into());
+    assert_eq!(t.allowance(to_key(t.bob), to_key(t.bob)), 0.into());
 }
 
 #[test]
@@ -29,12 +33,12 @@ fn test_staking_token_deploy() {
     assert_eq!(t.name(), "StakingToken");
     assert_eq!(t.symbol(), "STKN");
     assert_eq!(t.decimals(), token_cfg::DECIMALS);
-    assert_eq!(t.balance_of(t.ali), token_cfg::total_supply());
+    assert_eq!(t.balance_of(to_key(t.ali)), token_cfg::total_supply());
     //assert_eq!(t.balance_of(t.bob), 0.into());
-    assert_eq!(t.allowance(t.ali, t.ali), 0.into());
-    assert_eq!(t.allowance(t.ali, t.bob), 0.into());
-    assert_eq!(t.allowance(t.bob, t.ali), 0.into());
-    assert_eq!(t.allowance(t.bob, t.bob), 0.into());
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.ali)), 0.into());
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.bob)), 0.into());
+    assert_eq!(t.allowance(to_key(t.bob), to_key(t.ali)), 0.into());
+    assert_eq!(t.allowance(to_key(t.bob), to_key(t.bob)), 0.into());
 }
 
 #[test]
@@ -43,21 +47,21 @@ fn test_rewards_token_deploy() {
     assert_eq!(t.name(), "RewardsToken");
     assert_eq!(t.symbol(), "RWDT");
     assert_eq!(t.decimals(), token_cfg::DECIMALS);
-    assert_eq!(t.balance_of(t.ali), token_cfg::total_supply());
+    assert_eq!(t.balance_of(to_key(t.ali)), token_cfg::total_supply());
     //assert_eq!(t.balance_of(t.bob), 0.into());
-    assert_eq!(t.allowance(t.ali, t.ali), 0.into());
-    assert_eq!(t.allowance(t.ali, t.bob), 0.into());
-    assert_eq!(t.allowance(t.bob, t.ali), 0.into());
-    assert_eq!(t.allowance(t.bob, t.bob), 0.into());
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.ali)), 0.into());
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.bob)), 0.into());
+    assert_eq!(t.allowance(to_key(t.bob), to_key(t.ali)), 0.into());
+    assert_eq!(t.allowance(to_key(t.bob), to_key(t.bob)), 0.into());
 }
 
 #[test]
 fn test_erc20_transfer() {
     let amount = 10.into();
     let mut t = Token::deployed("ERC20", "ERC");
-    t.transfer(t.bob, amount, Sender(t.ali));
-    assert_eq!(t.balance_of(t.ali), token_cfg::total_supply() - amount);
-    assert_eq!(t.balance_of(t.bob), amount);
+    t.transfer(to_key(t.bob), amount, Sender(t.ali));
+    assert_eq!(t.balance_of(to_key(t.ali)), token_cfg::total_supply() - amount);
+    assert_eq!(t.balance_of(to_key(t.bob)), amount);
 }
 
 #[test]
@@ -65,18 +69,18 @@ fn test_erc20_transfer() {
 fn test_erc20_transfer_too_much() {
     let amount = 1.into();
     let mut t = Token::deployed("ERC20", "ERC");
-    t.transfer(t.ali, amount, Sender(t.bob));
+    t.transfer(to_key(t.ali), amount, Sender(t.bob));
 }
 
 #[test]
 fn test_erc20_approve() {
     let amount = 10.into();
     let mut t = Token::deployed("ERC20", "ERC");
-    t.approve(t.bob, amount, Sender(t.ali));
-    assert_eq!(t.balance_of(t.ali), token_cfg::total_supply());
+    t.approve(to_key(t.bob), amount, Sender(t.ali));
+    assert_eq!(t.balance_of(to_key(t.ali)), token_cfg::total_supply());
     //assert_eq!(t.balance_of(t.bob), 0.into());
-    assert_eq!(t.allowance(t.ali, t.bob), amount);
-    assert_eq!(t.allowance(t.bob, t.ali), 0.into());
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.bob)), amount);
+    assert_eq!(t.allowance(to_key(t.bob), to_key(t.ali)), 0.into());
 }
 
 #[test]
@@ -84,13 +88,13 @@ fn test_erc20_transfer_from() {
     let allowance = 10.into();
     let amount = 3.into();
     let mut t = Token::deployed("ERC20", "ERC");
-    t.approve(t.bob, allowance, Sender(t.ali));
-    assert_eq!(t.allowance(t.ali, t.bob), allowance);
-    t.transfer_from(t.ali, t.joe, amount, Sender(t.bob));
-    assert_eq!(t.balance_of(t.ali), token_cfg::total_supply() - amount);
+    t.approve(to_key(t.bob), allowance, Sender(t.ali));
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.bob)), allowance);
+    t.transfer_from(to_key(t.ali), to_key(t.joe), amount, Sender(t.bob));
+    assert_eq!(t.balance_of(to_key(t.ali)), token_cfg::total_supply() - amount);
     //assert_eq!(t.balance_of(t.bob), 0.into());
-    assert_eq!(t.balance_of(t.joe), amount);
-    assert_eq!(t.allowance(t.ali, t.bob), allowance - amount);
+    assert_eq!(t.balance_of(to_key(t.joe)), amount);
+    assert_eq!(t.allowance(to_key(t.ali), to_key(t.bob)), allowance - amount);
 }
 
 #[test]
@@ -98,7 +102,7 @@ fn test_erc20_transfer_from() {
 fn test_erc20_transfer_from_too_much() {
     let amount = token_cfg::total_supply().checked_add(1.into()).unwrap();
     let mut t = Token::deployed("ERC20", "ERC");
-    t.transfer_from(t.ali, t.joe, amount, Sender(t.bob));
+    t.transfer_from(to_key(t.ali), to_key(t.joe), amount, Sender(t.bob));
 }
 
 // // ------------ START - StakingRewards Tests ------------
@@ -136,7 +140,7 @@ fn test_staking_rewards_deploy() {
 #[test]
 fn test_set_rewards_distribution() {
     let mut stk_rwd = deploy_staking_rewards();
-    stk_rwd.set_rewards_distribution(ContractHash::new([0u8; 32]), STK_Sender(stk_rwd.ali));
+    stk_rwd.set_rewards_distribution(Key::Hash([0u8; 32]), STK_Sender(stk_rwd.ali));
     assert_eq!(stk_rwd.rewards_distribution(), ContractHash::new([0u8; 32]));
 }
 
@@ -144,7 +148,7 @@ fn test_set_rewards_distribution() {
 #[should_panic]
 fn test_only_owner() {
     let mut stk_rwd = deploy_staking_rewards();
-    stk_rwd.set_rewards_distribution(ContractHash::new([0u8; 32]), STK_Sender(stk_rwd.joe));
+    stk_rwd.set_rewards_distribution(Key::Hash([0u8; 32]), STK_Sender(stk_rwd.joe));
     assert_eq!(stk_rwd.rewards_distribution(), ContractHash::new([0u8; 32]));
 }
 
@@ -191,11 +195,11 @@ fn test_stake() {
     assert_eq!(stk_rwd.paused(), false);
     let amount: U256 = 3.into();
     let allowance = 10.into();
-    let old_balance: U256 = stk_rwd.staking_token.balance_of(stk_rwd.ali);
+    let old_balance: U256 = stk_rwd.staking_token.balance_of(to_key(stk_rwd.ali));
     assert_eq!(old_balance, U256::from(1000));
-    let staking_rewards_hash = AccountHash::new(stk_rwd.contract_hash());
+    let staking_rewards_hash = Key::Hash(stk_rwd.contract_hash());
     stk_rwd.staking_token.approve(staking_rewards_hash, amount, Sender(stk_rwd.ali));
-    stk_rwd.staking_token.approve(stk_rwd.ali, allowance, Sender(stk_rwd.ali));
+    stk_rwd.staking_token.approve(to_key(stk_rwd.ali), allowance, Sender(stk_rwd.ali));
     stk_rwd.stake(amount, STK_Sender(stk_rwd.ali));
     assert_eq!(stk_rwd.reward_per_token_stored(), U256::from(0));
     assert_eq!(stk_rwd.last_update_time(), U256::from(0));
@@ -203,8 +207,8 @@ fn test_stake() {
     assert_eq!(stk_rwd.reward_of(stk_rwd.ali), U256::from(0));
     assert_eq!(stk_rwd.user_reward_per_token_paid(stk_rwd.ali), U256::from(0));
     assert_eq!(stk_rwd.balance_of(stk_rwd.ali), amount);
-    assert_eq!(stk_rwd.staking_token.balance_of(stk_rwd.staking_token.ali), old_balance - amount);
-    assert_eq!(stk_rwd.staking_token.balance_of(AccountHash::new(stk_rwd.contract_hash())), amount);
+    assert_eq!(stk_rwd.staking_token.balance_of(to_key(stk_rwd.staking_token.ali)), old_balance - amount);
+    assert_eq!(stk_rwd.staking_token.balance_of(Key::Hash(stk_rwd.contract_hash())), amount);
 }
 
 #[test]
@@ -230,7 +234,7 @@ fn test_update_period_finish() {
 #[test]
 #[should_panic]
 // panics because runtime::get_blocktime() returns a zero value.
-// Assuming it's a limitation when working with test contexts.
+// It's a limitation when working with test contexts.
 fn test_set_rewards_duration() {
     let mut stk_rwd = deploy_staking_rewards();
     let rewards_duration = 1000.into();
@@ -245,21 +249,21 @@ fn test_set_rewards_duration() {
 fn test_recover_erc20() {
     let mut stk_rwd = deploy_staking_rewards();
     let amount: U256 = 3.into();
-    let initial_balance: U256 = stk_rwd.rewards_distribution.balance_of(stk_rwd.ali);
-    let staking_rewards_hash = AccountHash::new(stk_rwd.contract_hash());
+    let initial_balance: U256 = stk_rwd.rewards_distribution.balance_of(to_key(stk_rwd.ali));
+    let staking_rewards_hash = Key::Hash(stk_rwd.contract_hash());
     stk_rwd.rewards_distribution.transfer(staking_rewards_hash, amount, Sender(stk_rwd.ali));
     assert_eq!(
-        stk_rwd.rewards_distribution.balance_of(stk_rwd.ali),
+        stk_rwd.rewards_distribution.balance_of(to_key(stk_rwd.ali)),
         initial_balance - amount
     );
     assert_eq!(
         stk_rwd.rewards_distribution.balance_of(staking_rewards_hash),
         amount
     );
-    let rewards_distribution_hash = ContractHash::new(stk_rwd.rewards_distribution.contract_hash());
-    println!("{}", rewards_distribution_hash);
+    let rewards_distribution_key = Key::Hash(stk_rwd.rewards_distribution.contract_hash());
+    //println!("rewards_distribution KEY: {}", rewards_distribution_key);
     stk_rwd.recover_erc20(
-        rewards_distribution_hash,
+        rewards_distribution_key,
         amount,
         STK_Sender(stk_rwd.ali)
     );
@@ -271,7 +275,7 @@ fn test_recover_erc20() {
     //     Sender(stk_rwd.ali)
     // );
     assert_eq!(
-        stk_rwd.rewards_distribution.balance_of(stk_rwd.ali),
+        stk_rwd.rewards_distribution.balance_of(to_key(stk_rwd.ali)),
         initial_balance
     );
     assert_eq!(
@@ -286,8 +290,32 @@ fn test_recover_staking_token() {
     let mut stk_rwd = deploy_staking_rewards();
     let amount: U256 = 3.into();
     stk_rwd.recover_erc20(
-        ContractHash::new(stk_rwd.staking_token.contract_hash()),
+        Key::Hash(stk_rwd.staking_token.contract_hash()),
         amount,
         STK_Sender(stk_rwd.ali)
     );
+}
+
+#[test]
+fn transfer_to_contract() {
+    let amount = 3.into();
+    let mut stk_rwd = deploy_staking_rewards();
+    stk_rwd.staking_token.approve(
+        to_key(stk_rwd.ali),
+        amount,
+        Sender(stk_rwd.ali)
+    );
+    stk_rwd.staking_token.transfer_from(
+        to_key(stk_rwd.ali),
+        Key::Hash(stk_rwd.contract_hash()),
+        amount,
+        Sender(stk_rwd.ali)
+    );
+    // stk_rwd.staking_token.transfer(
+    //     Key::Hash(stk_rwd.contract_hash()),
+    //     amount,
+    //     Sender(stk_rwd.ali)
+    // );
+    assert_eq!(stk_rwd.staking_token.balance_of(Key::Hash(stk_rwd.contract_hash())), amount);
+    assert_eq!(stk_rwd.staking_token.balance_of(to_key(stk_rwd.ali)), U256::from(997));
 }

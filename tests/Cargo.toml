@@ -12,6 +12,7 @@ casper-contract = "1.3.2"
 casper-types = "1.3.2"
 casper-engine-test-support = "1.3.2"
 getrandom = { version = "0.2", features = ["js"] }
+hex = "0.4.3"
 
 [features]
 default = ["casper-contract/std", "casper-types/std", "casper-contract/test-support"]

@@ -11,12 +11,7 @@ use alloc::{
 use core::convert::TryInto;
 
 use contract::{contract_api::{runtime::{self, blake2b}, storage}, unwrap_or_revert::UnwrapOrRevert};
-use types::{
-    account::AccountHash,
-    bytesrepr::{FromBytes, ToBytes},
-    contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys},
-    runtime_args, CLType, CLTyped, CLValue, Group, Parameter, RuntimeArgs, URef, U256,
-};
+use types::{ApiError, CLType, CLTyped, CLValue, Group, Key, Parameter, RuntimeArgs, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys}, runtime_args};
 
 #[no_mangle]
 pub extern "C" fn name() {
@@ -44,37 +39,45 @@ pub extern "C" fn total_supply() {
 
 #[no_mangle]
 pub extern "C" fn balance_of() {
-    let account: AccountHash = runtime::get_named_arg("account");
-    let val: U256 = get_key("balances", &account.to_string());
+    let account: Key = runtime::get_named_arg("account");
+    let val: U256 = get_key("balances", &key_to_str(&account));
     ret(val)
 }
 
 #[no_mangle]
 pub extern "C" fn allowance() {
-    let owner: AccountHash = runtime::get_named_arg("owner");
-    let spender: AccountHash = runtime::get_named_arg("spender");
+    let owner: Key = runtime::get_named_arg("owner");
+    let spender: Key = runtime::get_named_arg("spender");
     let val: U256 = get_key_runtime(&allowance_key(&owner, &spender));
     ret(val)
 }
 
 #[no_mangle]
 pub extern "C" fn approve() {
-    let spender: AccountHash = runtime::get_named_arg("spender");
+    let spender: Key = runtime::get_named_arg("spender");
     let amount: U256 = runtime::get_named_arg("amount");
-    _approve(runtime::get_caller(), spender, amount);
+    _approve(
+        Key::Hash(runtime::get_caller().value()),
+        spender,
+        amount
+    );
 }
 
 #[no_mangle]
 pub extern "C" fn transfer() {
-    let recipient: AccountHash = runtime::get_named_arg("recipient");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let amount: U256 = runtime::get_named_arg("amount");
-    _transfer(runtime::get_caller(), recipient, amount);
+    _transfer(
+        Key::Hash(runtime::get_caller().value()),
+        recipient,
+        amount
+    );
 }
 
 #[no_mangle]
 pub extern "C" fn transfer_from() {
-    let owner: AccountHash = runtime::get_named_arg("owner");
-    let recipient: AccountHash = runtime::get_named_arg("recipient");
+    let owner: Key = runtime::get_named_arg("owner");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let amount: U256 = runtime::get_named_arg("amount");
     _transfer_from(owner, recipient, amount);
 }
@@ -94,28 +97,28 @@ pub extern "C" fn call() {
     entry_points.add_entry_point(endpoint(
         "transfer",
         vec![
-            Parameter::new("recipient", AccountHash::cl_type()),
+            Parameter::new("recipient", CLType::Key),
             Parameter::new("amount", CLType::U256),
         ],
         CLType::Unit,
     ));
     entry_points.add_entry_point(endpoint(
         "balance_of",
-        vec![Parameter::new("account", AccountHash::cl_type())],
+        vec![Parameter::new("account", CLType::Key)],
         CLType::U256,
     ));
     entry_points.add_entry_point(endpoint(
         "allowance",
         vec![
-            Parameter::new("owner", AccountHash::cl_type()),
-            Parameter::new("spender", AccountHash::cl_type()),
+            Parameter::new("owner", CLType::Key),
+            Parameter::new("spender", CLType::Key),
         ],
         CLType::U256,
     ));
     entry_points.add_entry_point(endpoint(
         "approve",
         vec![
-            Parameter::new("spender", AccountHash::cl_type()),
+            Parameter::new("spender", CLType::Key),
             Parameter::new("amount", CLType::U256),
         ],
         CLType::Unit,
@@ -123,8 +126,8 @@ pub extern "C" fn call() {
     entry_points.add_entry_point(endpoint(
         "transfer_from",
         vec![
-            Parameter::new("owner", AccountHash::cl_type()),
-            Parameter::new("recipient", AccountHash::cl_type()),
+            Parameter::new("owner", CLType::Key),
+            Parameter::new("recipient", CLType::Key),
             Parameter::new("amount", CLType::U256),
         ],
         CLType::Unit,
@@ -154,7 +157,7 @@ pub extern "C" fn call() {
     let balances_seed_uref = storage::new_dictionary("balances").unwrap_or_revert();
     storage::dictionary_put(
         balances_seed_uref,
-        &runtime::get_caller().to_string(),
+        &key_to_str(&Key::Hash(runtime::get_caller().value())),
         token_total_supply
     );
     let mut named_keys = NamedKeys::new();
@@ -173,29 +176,37 @@ pub extern "C" fn call() {
     runtime::put_key([&token_name, "_hash"].join("").as_str(), storage::new_uref(contract_hash).into());
 }
 
-fn _transfer(sender: AccountHash, recipient: AccountHash, amount: U256) {
-    let new_sender_balance: U256 = (get_key::<U256>("balances", &sender.to_string()) - amount);
-    set_key("balances", &sender.to_string(), new_sender_balance);
-    let new_recipient_balance: U256 = (get_key::<U256>("balances", &recipient.to_string()) + amount);
-    set_key("balances", &recipient.to_string(), new_recipient_balance);
+fn _transfer(sender: Key, recipient: Key, amount: U256) {
+    let new_sender_balance: U256 = (get_key::<U256>("balances", &key_to_str(&sender)) - amount);
+    set_key("balances", &key_to_str(&sender), new_sender_balance);
+    let new_recipient_balance: U256 = (get_key::<U256>("balances", &key_to_str(&recipient)) + amount);
+    set_key("balances", &key_to_str(&recipient), new_recipient_balance);
 }
 
-fn _transfer_from(owner: AccountHash, recipient: AccountHash, amount: U256) {
-    let key = allowance_key(&owner, &runtime::get_caller());
+fn _transfer_from(owner: Key, recipient: Key, amount: U256) {
+    let key = allowance_key(&owner, &Key::Hash(runtime::get_caller().value()));
     _transfer(owner, recipient, amount);
     _approve(
         owner,
-        runtime::get_caller(),
+        Key::Hash(runtime::get_caller().value()),
         (get_key_runtime::<U256>(&key) - amount),
     );
 }
 
-fn _approve(owner: AccountHash, spender: AccountHash, amount: U256) {
+fn _approve(owner: Key, spender: Key, amount: U256) {
     set_key_runtime(&allowance_key(&owner, &spender), amount);
 }
 
 fn ret<T: CLTyped + ToBytes>(value: T) {
     runtime::ret(CLValue::from_t(value).unwrap_or_revert())
+}
+
+fn key_to_str(key: &Key) -> String {
+    match key {
+        Key::Account(account) => account.to_string(),
+        Key::Hash(package) => hex::encode(package),
+        _ => runtime::revert(ApiError::UnexpectedKeyVariant),
+    }
 }
 
 fn get_dictionary_seed_uref(name: &str) -> URef {
@@ -244,7 +255,7 @@ fn set_key<T: ToBytes + CLTyped>(dictionary_name: &str, key: &str, value: T) {
     storage::dictionary_put(dictionary_seed_uref, key, value)
 }
 
-fn allowance_key(owner: &AccountHash, sender: &AccountHash) -> String {
+fn allowance_key(owner: &Key, sender: &Key) -> String {
     format!("allowances_{}_{}", owner, sender)
 }
 

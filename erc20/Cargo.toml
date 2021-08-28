@@ -8,6 +8,7 @@ edition = "2018"
 [dependencies]
 contract = { package = "casper-contract", version="1.3.2" }
 types = { package = "casper-types", version="1.3.2" }
+hex = "0.4.3"
 
 [[bin]]
 name = "erc20"
