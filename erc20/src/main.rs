@@ -11,7 +11,7 @@ use alloc::{
 use core::convert::TryInto;
 
 use contract::{contract_api::{runtime::{self, blake2b}, storage}, unwrap_or_revert::UnwrapOrRevert};
-use types::{ApiError, CLType, CLTyped, CLValue, Group, Key, Parameter, RuntimeArgs, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys}, runtime_args};
+use types::{ApiError, CLType, CLTyped, CLValue, Group, Key, Parameter, RuntimeArgs, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys}, runtime_args, system::CallStackElement};
 
 #[no_mangle]
 pub extern "C" fn name() {
@@ -57,7 +57,7 @@ pub extern "C" fn approve() {
     let spender: Key = runtime::get_named_arg("spender");
     let amount: U256 = runtime::get_named_arg("amount");
     _approve(
-        Key::Hash(runtime::get_caller().value()),
+        Key::Account(runtime::get_caller()),
         spender,
         amount
     );
@@ -68,7 +68,7 @@ pub extern "C" fn transfer() {
     let recipient: Key = runtime::get_named_arg("recipient");
     let amount: U256 = runtime::get_named_arg("amount");
     _transfer(
-        Key::Hash(runtime::get_caller().value()),
+        Key::Account(runtime::get_caller()),
         recipient,
         amount
     );
@@ -157,7 +157,7 @@ pub extern "C" fn call() {
     let balances_seed_uref = storage::new_dictionary("balances").unwrap_or_revert();
     storage::dictionary_put(
         balances_seed_uref,
-        &key_to_str(&Key::Hash(runtime::get_caller().value())),
+        &key_to_str(&Key::Account(runtime::get_caller())),
         token_total_supply
     );
     let mut named_keys = NamedKeys::new();
@@ -184,11 +184,11 @@ fn _transfer(sender: Key, recipient: Key, amount: U256) {
 }
 
 fn _transfer_from(owner: Key, recipient: Key, amount: U256) {
-    let key = allowance_key(&owner, &Key::Hash(runtime::get_caller().value()));
+    let key = allowance_key(&owner, &Key::Account(runtime::get_caller()));
     _transfer(owner, recipient, amount);
     _approve(
         owner,
-        Key::Hash(runtime::get_caller().value()),
+        Key::Account(runtime::get_caller()),
         (get_key_runtime::<U256>(&key) - amount),
     );
 }

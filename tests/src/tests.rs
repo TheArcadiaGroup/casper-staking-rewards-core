@@ -10,7 +10,7 @@ use crate::staking_rewards::{Sender as STK_Sender, StakingRewards};
 // ------------ START - ERC20 Tests ------------
 
 fn to_key(account: AccountHash) -> Key {
-    Key::Hash(account.value())
+    Key::Account(account)
 }
 
 #[test]
@@ -189,7 +189,6 @@ fn test_stake_zero() {
 #[test]
 #[should_panic]
 // panics because the contract can't get its own hash.
-// Assuming it's a limitation when working with test contexts.
 fn test_stake() {
     let mut stk_rwd = deploy_staking_rewards();
     assert_eq!(stk_rwd.paused(), false);
@@ -297,7 +296,7 @@ fn test_recover_staking_token() {
 }
 
 #[test]
-fn transfer_to_contract() {
+fn transfer_from_to_contract() {
     let amount = 3.into();
     let mut stk_rwd = deploy_staking_rewards();
     stk_rwd.staking_token.approve(
@@ -311,11 +310,19 @@ fn transfer_to_contract() {
         amount,
         Sender(stk_rwd.ali)
     );
-    // stk_rwd.staking_token.transfer(
-    //     Key::Hash(stk_rwd.contract_hash()),
-    //     amount,
-    //     Sender(stk_rwd.ali)
-    // );
+    assert_eq!(stk_rwd.staking_token.balance_of(Key::Hash(stk_rwd.contract_hash())), amount);
+    assert_eq!(stk_rwd.staking_token.balance_of(to_key(stk_rwd.ali)), U256::from(997));
+}
+
+#[test]
+fn transfer_to_contract() {
+    let amount = 3.into();
+    let mut stk_rwd = deploy_staking_rewards();
+    stk_rwd.staking_token.transfer(
+        Key::Hash(stk_rwd.contract_hash()),
+        amount,
+        Sender(stk_rwd.ali)
+    );
     assert_eq!(stk_rwd.staking_token.balance_of(Key::Hash(stk_rwd.contract_hash())), amount);
     assert_eq!(stk_rwd.staking_token.balance_of(to_key(stk_rwd.ali)), U256::from(997));
 }

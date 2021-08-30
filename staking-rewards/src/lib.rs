@@ -224,14 +224,16 @@ pub extern "C" fn stake() {
         &runtime::get_caller().to_string(),
         old_balance.add(amount)
     );
-    let current_contract_hash: ContractHash = runtime::get_key("StakingRewards")
-        .and_then(Key::into_hash)
-        .expect("should have key")
-        .into();
+    // let current_contract_hash: ContractHash = runtime::get_key("StakingRewards")
+    //     .and_then(Key::into_hash)
+    //     .expect("should have key")
+    //     .into();
+    let current_contract_key = runtime::get_key("StakingRewards").unwrap_or_revert();
+    //let current_contract_hash = get_key_runtime::<ContractHash>("staking_rewards");
     _safe_transfer_from(
         get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
-        Key::Hash(runtime::get_caller().value()), 
-        Key::Hash(current_contract_hash.value()),
+        Key::Account(runtime::get_caller()),
+        current_contract_key,
         amount
     );
     _free_entrancy();
@@ -281,15 +283,16 @@ pub extern "C" fn notify_reward_amount() {
     // This keeps the reward rate in the right range, preventing overflows due to
     // very high values of rewardRate in the earned and rewardsPerToken functions;
     // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-    let current_contract_hash: ContractHash = runtime::get_key("StakingRewards")
-        .and_then(Key::into_hash)
-        .expect("should have key")
-        .into();
+    // let current_contract_hash: ContractHash = runtime::get_key("StakingRewards")
+    //     .and_then(Key::into_hash)
+    //     .expect("should have key")
+    //     .into();
+    let current_contract_key = runtime::get_key("StakingRewards").unwrap_or_revert();
     let balance: U256 = call_contract(
         get_key::<ContractHash>("staking_rewards_data", "rewards_token"),
         "balance_of",
         runtime_args! {
-            "account" => Key::Hash(current_contract_hash.value())
+            "account" => current_contract_key
         }
     );
     if (
@@ -451,7 +454,7 @@ pub fn withdraw(amount: U256) {
     );
     _safe_transfer(
         get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
-        Key::Hash(runtime::get_caller().value()),
+        Key::Account(runtime::get_caller()),
         amount
     );
     _free_entrancy();
@@ -471,7 +474,7 @@ pub fn get_reward() {
         );
         _safe_transfer(
             get_key::<ContractHash>("staking_rewards_data", "rewards_token"), 
-            Key::Hash(runtime::get_caller().value()),
+            Key::Account(runtime::get_caller()),
             reward
         );
     }
@@ -688,7 +691,12 @@ pub extern "C" fn call() {
     ));
 
     let (contract_hash, _) =
-        storage::new_locked_contract(entry_points, Some(named_keys), None, None);
+        storage::new_contract(
+            entry_points,
+            Some(named_keys),
+            Some("staking_rewards".to_string()),
+            Some("staking_rewards_hash".to_string())
+        );
     runtime::put_key("StakingRewards", contract_hash.into());
     runtime::put_key("StakingRewards_hash", storage::new_uref(contract_hash).into());
 }
