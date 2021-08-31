@@ -68,7 +68,7 @@ pub extern "C" fn transfer() {
     let recipient: Key = runtime::get_named_arg("recipient");
     let amount: U256 = runtime::get_named_arg("amount");
     _transfer(
-        Key::Account(runtime::get_caller()),
+        get_caller(),
         recipient,
         amount
     );
@@ -293,6 +293,23 @@ fn endpoint(name: &str, param: Vec<Parameter>, ret: CLType) -> EntryPoint {
         EntryPointAccess::Public,
         EntryPointType::Contract,
     )
+}
+
+fn get_caller() -> Key {
+    let mut callstack = runtime::get_call_stack();
+    callstack.pop();
+    match callstack.last().unwrap_or_revert() {
+        CallStackElement::Session { account_hash } => (*account_hash).into(),
+        CallStackElement::StoredSession {
+            account_hash,
+            contract_package_hash: _,
+            contract_hash: _,
+        } => (*account_hash).into(),
+        CallStackElement::StoredContract {
+            contract_package_hash: _,
+            contract_hash,
+        } => (*contract_hash).into(),
+    }
 }
 
 fn main() {
