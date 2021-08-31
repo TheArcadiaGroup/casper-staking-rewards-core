@@ -11,7 +11,7 @@ use alloc::{
 use core::convert::TryInto;
 
 use contract::{contract_api::{runtime::{self, blake2b}, storage}, unwrap_or_revert::UnwrapOrRevert};
-use types::{ApiError, CLType, CLTyped, CLValue, Group, Key, Parameter, RuntimeArgs, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys}, runtime_args, system::CallStackElement};
+use types::{ApiError, CLType, CLTyped, CLValue, ContractHash, Group, Key, Parameter, RuntimeArgs, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys}, runtime_args, system::CallStackElement};
 
 #[no_mangle]
 pub extern "C" fn name() {
@@ -82,12 +82,26 @@ pub extern "C" fn transfer_from() {
     _transfer_from(owner, recipient, amount);
 }
 
+// #[no_mangle]
+// pub extern "C" fn call_notify_reward_amount() {
+//     runtime::call_contract::<()>(
+//         get_key::<ContractHash>("token_metadata", "staking_rewards_hash"),
+//         "notify_reward_amount",
+//         runtime_args! {
+//             "reward" => runtime::get_named_arg::<U256>("reward"),
+//         },
+//     );
+// }
+
 #[no_mangle]
 pub extern "C" fn call() {
     let token_name: String = runtime::get_named_arg("token_name");
     let token_symbol: String = runtime::get_named_arg("token_symbol");
     let token_decimals: u8 = runtime::get_named_arg("token_decimals");
     let token_total_supply: U256 = runtime::get_named_arg("token_total_supply");
+    // let staking_rewards_hash: ContractHash = ContractHash::from(
+    //     runtime::get_named_arg::<Key>("staking_rewards_key").into_hash().unwrap_or_revert()
+    // );
 
     let mut entry_points = EntryPoints::new();
     entry_points.add_entry_point(endpoint("name", vec![], CLType::String));
@@ -132,6 +146,13 @@ pub extern "C" fn call() {
         ],
         CLType::Unit,
     ));
+    // entry_points.add_entry_point(endpoint(
+    //     "call_notify_reward_amount",
+    //     vec![
+    //         Parameter::new("reward", CLType::U256),
+    //     ],
+    //     CLType::Unit,
+    // ));
 
     let dictionary_seed_uref = storage::new_dictionary("token_metadata").unwrap_or_revert();
     storage::dictionary_put(
@@ -154,6 +175,11 @@ pub extern "C" fn call() {
         "total_supply",
         token_total_supply
     );
+    // storage::dictionary_put(
+    //     dictionary_seed_uref,
+    //     "staking_rewards_hash",
+    //     staking_rewards_hash
+    // );
     let balances_seed_uref = storage::new_dictionary("balances").unwrap_or_revert();
     storage::dictionary_put(
         balances_seed_uref,

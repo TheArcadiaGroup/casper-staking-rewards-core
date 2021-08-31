@@ -25,6 +25,7 @@ fn test_erc20_deploy() {
     assert_eq!(t.allowance(to_key(t.ali), to_key(t.bob)), 0.into());
     assert_eq!(t.allowance(to_key(t.bob), to_key(t.ali)), 0.into());
     assert_eq!(t.allowance(to_key(t.bob), to_key(t.bob)), 0.into());
+    assert_eq!(t.ali, AccountHash::from_formatted_str("account-hash-fb4215156ad2505de4b230bd8de087cc0443025cd1ad2b468846571d443196ac").unwrap());
 }
 
 #[test]
@@ -188,7 +189,7 @@ fn test_stake_zero() {
 
 #[test]
 #[should_panic]
-// panics because the contract can't get its own hash.
+//panics because the contract can't get its own hash.
 fn test_stake() {
     let mut stk_rwd = deploy_staking_rewards();
     assert_eq!(stk_rwd.paused(), false);
@@ -199,6 +200,7 @@ fn test_stake() {
     let staking_rewards_hash = Key::Hash(stk_rwd.contract_hash());
     stk_rwd.staking_token.approve(staking_rewards_hash, amount, Sender(stk_rwd.ali));
     stk_rwd.staking_token.approve(to_key(stk_rwd.ali), allowance, Sender(stk_rwd.ali));
+    println!("{}", Key::Hash(stk_rwd.staking_token().value()));
     stk_rwd.stake(amount, STK_Sender(stk_rwd.ali));
     assert_eq!(stk_rwd.reward_per_token_stored(), U256::from(0));
     assert_eq!(stk_rwd.last_update_time(), U256::from(0));
@@ -244,7 +246,7 @@ fn test_set_rewards_duration() {
 #[test]
 #[should_panic]
 // panics because call_contract() gives me KeyNotFound error.
-// Assuming it's a limitation when working with test contexts.
+// It's a limitation when working with test contexts.
 fn test_recover_erc20() {
     let mut stk_rwd = deploy_staking_rewards();
     let amount: U256 = 3.into();

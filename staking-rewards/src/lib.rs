@@ -10,8 +10,8 @@ use alloc::{
 };
 use core::convert::TryInto;
 use std::ops::{Add, Div, Mul, Sub};
-use contract::{contract_api::{runtime::{self, call_contract}, storage}, unwrap_or_revert::UnwrapOrRevert};
-use types::{ApiError, BlockTime, CLType, CLTyped, CLValue, Contract, ContractHash, Group, Key, Parameter, PublicKey, RuntimeArgs, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys}, runtime_args};
+use contract::{contract_api::{runtime::{self, call_contract}, storage::{self, create_contract_package_at_hash}}, unwrap_or_revert::UnwrapOrRevert};
+use types::{ApiError, BlockTime, CLType, CLTyped, CLValue, Contract, ContractHash, Group, Key, Parameter, PublicKey, RuntimeArgs, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::{EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, NamedKeys}, runtime_args, system::CallStackElement};
 use libs::math;
 
 pub enum Error {
@@ -224,16 +224,12 @@ pub extern "C" fn stake() {
         &runtime::get_caller().to_string(),
         old_balance.add(amount)
     );
-    // let current_contract_hash: ContractHash = runtime::get_key("StakingRewards")
-    //     .and_then(Key::into_hash)
-    //     .expect("should have key")
-    //     .into();
-    let current_contract_key = runtime::get_key("StakingRewards").unwrap_or_revert();
-    //let current_contract_hash = get_key_runtime::<ContractHash>("staking_rewards");
+    let current_contract_hash = get_key::<ContractHash>("staking_rewards_data", "contract_hash");
+    assert_ne!(current_contract_hash, ContractHash::new([0u8; 32]));
     _safe_transfer_from(
         get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
         Key::Account(runtime::get_caller()),
-        current_contract_key,
+        Key::Hash(current_contract_hash.value()),
         amount
     );
     _free_entrancy();
@@ -287,12 +283,12 @@ pub extern "C" fn notify_reward_amount() {
     //     .and_then(Key::into_hash)
     //     .expect("should have key")
     //     .into();
-    let current_contract_key = runtime::get_key("StakingRewards").unwrap_or_revert();
+    let current_contract_hash = get_key::<ContractHash>("staking_rewards_data", "contract_hash");
     let balance: U256 = call_contract(
         get_key::<ContractHash>("staking_rewards_data", "rewards_token"),
         "balance_of",
         runtime_args! {
-            "account" => current_contract_key
+            "account" => Key::Hash(current_contract_hash.value())
         }
     );
     if (
@@ -350,7 +346,7 @@ pub extern "C" fn recover_erc20() {
     }
     _safe_transfer(
         token_contract_hash,
-        Key::Hash(get_key::<AccountHash>("staking_rewards_data", "owner").value()),
+        Key::Account(get_key::<AccountHash>("staking_rewards_data", "owner")),
         token_amount
     );
 }
@@ -453,7 +449,7 @@ pub fn withdraw(amount: U256) {
         old_balance.sub(amount)
     );
     _safe_transfer(
-        get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
+        get_key::<ContractHash>("staking_rewards_data", "staking_token"),
         Key::Account(runtime::get_caller()),
         amount
     );
@@ -473,7 +469,7 @@ pub fn get_reward() {
             U256::from(0)
         );
         _safe_transfer(
-            get_key::<ContractHash>("staking_rewards_data", "rewards_token"), 
+            get_key::<ContractHash>("staking_rewards_data", "rewards_token"),
             Key::Account(runtime::get_caller()),
             reward
         );
@@ -690,15 +686,28 @@ pub extern "C" fn call() {
         CLType::Unit
     ));
 
+    // let (contract_hash, _) =
+    //     storage::new_contract(
+    //         entry_points,
+    //         Some(named_keys),
+    //         Some("staking_rewards".to_string()),
+    //         Some("staking_rewards_hash".to_string())
+    //     );
+    let (contract_package_hash, access_uref) = create_contract_package_at_hash();
+    // Add new version to the package.
     let (contract_hash, _) =
-        storage::new_contract(
-            entry_points,
-            Some(named_keys),
-            Some("staking_rewards".to_string()),
-            Some("staking_rewards_hash".to_string())
-        );
+        storage::add_contract_version(contract_package_hash, entry_points, named_keys);
+    // Save contract and contract hash in the caller's context.
     runtime::put_key("StakingRewards", contract_hash.into());
     runtime::put_key("StakingRewards_hash", storage::new_uref(contract_hash).into());
+    // Save access_uref
+    runtime::put_key("access_uref", access_uref.into());
+    // Save contract_hash under the contract's dictionary to be accessed through the contract's endpoints.
+    storage::dictionary_put(
+        dictionary_seed_uref,
+        "contract_hash",
+        contract_hash,
+    );
 }
 
 /* ✖✖✖✖✖✖✖✖✖✖✖ Internal Functions - Start ✖✖✖✖✖✖✖✖✖✖✖ */
@@ -723,11 +732,13 @@ fn _not_paused() {
 
 fn _only_rewards_distribution() {
     if (
-        runtime::get_caller().value() != 
-        get_key::<ContractHash>(
+        get_caller() != 
+        Key::Hash(
+            get_key::<ContractHash>(
             "staking_rewards_data",
             "rewards_distribution"
-        ).value()
+            ).value()
+        )
     ) {
         runtime::revert(Error::OnlyRewardsDistributionContract);
     }
@@ -828,4 +839,21 @@ fn endpoint(name: &str, param: Vec<Parameter>, ret: CLType) -> EntryPoint {
         EntryPointAccess::Public,
         EntryPointType::Contract,
     )
+}
+
+fn get_caller() -> Key {
+    let mut callstack = runtime::get_call_stack();
+    callstack.pop();
+    match callstack.last().unwrap_or_revert() {
+        CallStackElement::Session { account_hash } => (*account_hash).into(),
+        CallStackElement::StoredSession {
+            account_hash,
+            contract_package_hash: _,
+            contract_hash: _,
+        } => (*account_hash).into(),
+        CallStackElement::StoredContract {
+            contract_package_hash: _,
+            contract_hash,
+        } => (*contract_hash).into(),
+    }
 }
