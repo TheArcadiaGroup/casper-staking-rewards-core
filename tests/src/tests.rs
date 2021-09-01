@@ -205,9 +205,9 @@ fn test_stake() {
     assert_eq!(stk_rwd.reward_per_token_stored(), U256::from(0));
     assert_eq!(stk_rwd.last_update_time(), U256::from(0));
     assert_eq!(stk_rwd.total_supply(), amount);
-    assert_eq!(stk_rwd.reward_of(stk_rwd.ali), U256::from(0));
-    assert_eq!(stk_rwd.user_reward_per_token_paid(stk_rwd.ali), U256::from(0));
-    assert_eq!(stk_rwd.balance_of(stk_rwd.ali), amount);
+    assert_eq!(stk_rwd.reward_of(to_key(stk_rwd.ali)), U256::from(0));
+    assert_eq!(stk_rwd.user_reward_per_token_paid(to_key(stk_rwd.ali)), U256::from(0));
+    assert_eq!(stk_rwd.balance_of(to_key(stk_rwd.ali)), amount);
     assert_eq!(stk_rwd.staking_token.balance_of(to_key(stk_rwd.staking_token.ali)), old_balance - amount);
     assert_eq!(stk_rwd.staking_token.balance_of(Key::Hash(stk_rwd.contract_hash())), amount);
 }

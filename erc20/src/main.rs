@@ -57,7 +57,7 @@ pub extern "C" fn approve() {
     let spender: Key = runtime::get_named_arg("spender");
     let amount: U256 = runtime::get_named_arg("amount");
     _approve(
-        Key::Account(runtime::get_caller()),
+        get_caller(),
         spender,
         amount
     );
@@ -210,11 +210,11 @@ fn _transfer(sender: Key, recipient: Key, amount: U256) {
 }
 
 fn _transfer_from(owner: Key, recipient: Key, amount: U256) {
-    let key = allowance_key(&owner, &Key::Account(runtime::get_caller()));
+    let key = allowance_key(&owner, &get_caller());
     _transfer(owner, recipient, amount);
     _approve(
         owner,
-        Key::Account(runtime::get_caller()),
+        get_caller(),
         (get_key_runtime::<U256>(&key) - amount),
     );
 }

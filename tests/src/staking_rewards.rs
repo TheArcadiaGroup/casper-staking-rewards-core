@@ -17,6 +17,14 @@ pub struct StakingRewards {
     pub staking_token: Token,
 }
 
+fn key_to_str(key: &Key) -> String {
+    match key {
+        Key::Account(account) => account.to_string(),
+        Key::Hash(package) => hex::encode(package),
+        _ => "UnexpectedKeyVariant".to_string()
+    }
+}
+
 impl StakingRewards {
     pub fn deployed(
         rewards_distribution: Token,
@@ -156,21 +164,21 @@ impl StakingRewards {
         ).unwrap()
     }
 
-    pub fn user_reward_per_token_paid(&self, owner: AccountHash) -> U256 {
+    pub fn user_reward_per_token_paid(&self, owner: Key) -> U256 {
         self.query_contract_dictionary(
             self.ali,
             &self.context,
             "user_reward_per_token_paid".to_string(),
-            owner.to_string()
+            key_to_str(&owner)
         ).unwrap()
     }
 
-    pub fn reward_of(&self, owner: AccountHash) -> U256 {
+    pub fn reward_of(&self, owner: Key) -> U256 {
         self.query_contract_dictionary(
             self.ali,
             &self.context,
             "rewards".to_string(),
-            owner.to_string()
+            key_to_str(&owner)
         ).unwrap()
     }
 
@@ -183,12 +191,12 @@ impl StakingRewards {
         ).unwrap()
     }
 
-    pub fn balance_of(&self, owner: AccountHash) -> U256 {
+    pub fn balance_of(&self, owner: Key) -> U256 {
         self.query_contract_dictionary(
             self.ali,
             &self.context,
             "balances".to_string(),
-            owner.to_string()
+            key_to_str(&owner)
         ).unwrap()
     }
 

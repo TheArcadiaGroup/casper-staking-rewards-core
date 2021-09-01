@@ -79,15 +79,15 @@ pub extern "C" fn reward_per_token_stored() {
 
 #[no_mangle]
 pub extern "C" fn user_reward_per_token_paid() {
-    let owner: AccountHash = runtime::get_named_arg("owner");
-    let val: U256 = get_key("user_reward_per_token_paid", &owner.to_string());
+    let owner: Key = runtime::get_named_arg("owner");
+    let val: U256 = get_key("user_reward_per_token_paid", &key_to_str(&owner));
     ret(val)
 }
 
 #[no_mangle]
 pub extern "C" fn reward_of() {
-    let owner: AccountHash = runtime::get_named_arg("owner");
-    let val: U256 = get_key("rewards", &owner.to_string());
+    let owner: Key = runtime::get_named_arg("owner");
+    let val: U256 = get_key("rewards", &key_to_str(&owner));
     ret(val)
 }
 
@@ -99,8 +99,8 @@ pub extern "C" fn total_supply() {
 
 #[no_mangle]
 pub extern "C" fn balance_of() {
-    let owner: AccountHash = runtime::get_named_arg("owner");
-    let val: U256 = get_key("balances", &owner.to_string());
+    let owner: Key = runtime::get_named_arg("owner");
+    let val: U256 = get_key("balances", &key_to_str(&owner));
     ret(val)
 }
 
@@ -207,7 +207,7 @@ pub extern "C" fn get_reward_for_duration() {
 pub extern "C" fn stake() {
     _non_reentrant();
     _not_paused();
-    _update_reward(runtime::get_caller());
+    _update_reward(get_caller());
     let amount: U256 = runtime::get_named_arg("amount");
     if (amount <= U256::from(0)) {
         _free_entrancy();
@@ -218,17 +218,17 @@ pub extern "C" fn stake() {
         "total_supply",
         get_key::<U256>("staking_rewards_data", "total_supply").add(amount)
     );
-    let old_balance: U256 = get_key("balances", &runtime::get_caller().to_string());
+    let old_balance: U256 = get_key("balances", &key_to_str(&get_caller()));
     set_key(
         "balances",
-        &runtime::get_caller().to_string(),
+        &key_to_str(&get_caller()),
         old_balance.add(amount)
     );
     let current_contract_hash = get_key::<ContractHash>("staking_rewards_data", "contract_hash");
     assert_ne!(current_contract_hash, ContractHash::new([0u8; 32]));
     _safe_transfer_from(
         get_key::<ContractHash>("staking_rewards_data", "staking_token"), 
-        Key::Account(runtime::get_caller()),
+        get_caller(),
         Key::Hash(current_contract_hash.value()),
         amount
     );
@@ -238,10 +238,10 @@ pub extern "C" fn stake() {
 /// Function: exit()
 ///
 /// # Purpose
-/// Withdraws an account's staked tokens and gets reward tokens if he has earned any.
+/// Withdraws a caller's staked tokens and gets reward tokens if he has earned any.
 #[no_mangle]
 pub extern "C" fn exit() {
-    withdraw(get_key::<U256>("balances", &runtime::get_caller().to_string()));
+    withdraw(get_key::<U256>("balances", &key_to_str(&get_caller())));
     get_reward();
 }
 
@@ -255,7 +255,7 @@ pub extern "C" fn exit() {
 #[no_mangle]
 pub extern "C" fn notify_reward_amount() {
     _only_rewards_distribution();
-    _update_reward(AccountHash::new([0u8; 32]));
+    _update_reward(Key::Hash([0u8; 32]));
     let reward: U256 = runtime::get_named_arg("reward");
     if (U256::from(u64::from(runtime::get_blocktime())) >= get_key::<U256>("staking_rewards_data", "period_finish")) {
         set_key(
@@ -319,7 +319,7 @@ pub extern "C" fn notify_reward_amount() {
 #[no_mangle]
 pub extern "C" fn update_period_finish() {
     _only_owner();
-    _update_reward(AccountHash::new([0u8; 32]));
+    _update_reward(Key::Hash([0u8; 32]));
     set_key(
         "staking_rewards_data", 
         "period_finish",
@@ -327,12 +327,12 @@ pub extern "C" fn update_period_finish() {
     );
 }
 
-/// Function: recover_erc20(token_contract_hash: String, token_amount: U256)
+/// Function: recover_erc20(token_contract_key: Key, token_amount: U256)
 ///
 /// # Purpose
 /// Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders.
 /// # Arguments
-/// * `token_contract_hash` - a `String` which holds the token's contract hash.
+/// * `token_contract_key` - a `Key` which holds the token's contract key.
 /// * `token_amount` - a `U256` which holds the token's amount.
 #[no_mangle]
 pub extern "C" fn recover_erc20() {
@@ -413,17 +413,17 @@ pub fn reward_per_token() -> U256 {
 /// # Purpose
 /// Returns the earned reward tokens for a given account.
 /// # Arguments
-/// * `account` - an `AccountHash` which holds the user's account hash.
+/// * `account` - a `Key` which holds the caller's Key.
 /// # Returns
 /// * `amount` - an `U256` which holds earned reward tokens amount.
-pub fn earned(account: AccountHash) -> U256 {
-    get_key::<U256>("balances", &account.to_string())
+pub fn earned(account: Key) -> U256 {
+    get_key::<U256>("balances", &key_to_str(&account))
     .mul(
         reward_per_token()
-        .sub(get_key::<U256>("user_reward_per_token_paid", &account.to_string()))
+        .sub(get_key::<U256>("user_reward_per_token_paid", &key_to_str(&account)))
     )
     .div(U256::from(10u128.pow(18)))
-    .add(get_key::<U256>("rewards", &account.to_string()))
+    .add(get_key::<U256>("rewards", &key_to_str(&account)))
 }
 
 /// # Purpose
@@ -432,7 +432,7 @@ pub fn earned(account: AccountHash) -> U256 {
 /// * `amount` - a `U256` which holds token's amount that will be withdrawn.
 pub fn withdraw(amount: U256) {
     _non_reentrant();
-    _update_reward(runtime::get_caller());
+    _update_reward(get_caller());
     if (amount <= U256::from(0)) {
         _free_entrancy();
         runtime::revert(Error::CannotWithdrawZero);
@@ -442,15 +442,15 @@ pub fn withdraw(amount: U256) {
         "total_supply",
         get_key::<U256>("staking_rewards_data", "total_supply").sub(amount)
     );
-    let old_balance: U256 = get_key("balances", &runtime::get_caller().to_string());
+    let old_balance: U256 = get_key("balances", &key_to_str(&get_caller()));
     set_key(
         "balances",
-        &runtime::get_caller().to_string(),
+        &key_to_str(&get_caller()),
         old_balance.sub(amount)
     );
     _safe_transfer(
         get_key::<ContractHash>("staking_rewards_data", "staking_token"),
-        Key::Account(runtime::get_caller()),
+        get_caller(),
         amount
     );
     _free_entrancy();
@@ -460,17 +460,17 @@ pub fn withdraw(amount: U256) {
 /// Sends reward tokens to the caller if he has any.
 pub fn get_reward() {
     _non_reentrant();
-    _update_reward(runtime::get_caller());
-    let reward: U256 = get_key("rewards", &runtime::get_caller().to_string());
+    _update_reward(get_caller());
+    let reward: U256 = get_key("rewards", &key_to_str(&get_caller()));
     if (reward > U256::from(0)) {
         set_key(
             "rewards",
-            &runtime::get_caller().to_string(),
+            &key_to_str(&get_caller()),
             U256::from(0)
         );
         _safe_transfer(
             get_key::<ContractHash>("staking_rewards_data", "rewards_token"),
-            Key::Account(runtime::get_caller()),
+            get_caller(),
             reward
         );
     }
@@ -619,17 +619,17 @@ pub extern "C" fn call() {
     entry_points.add_entry_point(endpoint("get_reward_for_duration", vec![], CLType::U256));
     entry_points.add_entry_point(endpoint(
         "balance_of",
-        vec![Parameter::new("account", AccountHash::cl_type())],
+        vec![Parameter::new("account", CLType::Key)],
         CLType::U256,
     ));
     entry_points.add_entry_point(endpoint(
         "user_reward_per_token_paid",
-        vec![Parameter::new("account", AccountHash::cl_type())],
+        vec![Parameter::new("account", CLType::Key)],
         CLType::U256,
     ));
     entry_points.add_entry_point(endpoint(
         "reward_of",
-        vec![Parameter::new("account", AccountHash::cl_type())],
+        vec![Parameter::new("account", CLType::Key)],
         CLType::U256,
     ));
     entry_points.add_entry_point(endpoint(
@@ -658,7 +658,7 @@ pub extern "C" fn call() {
     entry_points.add_entry_point(endpoint("nominated_owner", vec![], AccountHash::cl_type()));
     entry_points.add_entry_point(endpoint(
         "nominate_new_owner", 
-        vec![Parameter::new("owner", ContractHash::cl_type())], 
+        vec![Parameter::new("owner", AccountHash::cl_type())], 
         CLType::Unit
     ));
     entry_points.add_entry_point(endpoint("accept_ownership", vec![], CLType::Unit));
@@ -686,13 +686,6 @@ pub extern "C" fn call() {
         CLType::Unit
     ));
 
-    // let (contract_hash, _) =
-    //     storage::new_contract(
-    //         entry_points,
-    //         Some(named_keys),
-    //         Some("staking_rewards".to_string()),
-    //         Some("staking_rewards_hash".to_string())
-    //     );
     let (contract_package_hash, access_uref) = create_contract_package_at_hash();
     // Add new version to the package.
     let (contract_hash, _) =
@@ -712,13 +705,19 @@ pub extern "C" fn call() {
 
 /* ✖✖✖✖✖✖✖✖✖✖✖ Internal Functions - Start ✖✖✖✖✖✖✖✖✖✖✖ */
 fn _only_owner() {
-    if (runtime::get_caller() != get_key::<AccountHash>("staking_rewards_data", "owner")) {
+    if (
+        get_caller() != 
+        Key::Account(get_key::<AccountHash>("staking_rewards_data", "owner"))
+    ) {
         runtime::revert(Error::OnlyOwner);
     }
 }
 
 fn _only_nominated_owner() {
-    if (runtime::get_caller() != get_key::<AccountHash>("staking_rewards_data", "nominated_owner")) {
+    if (
+        get_caller() != 
+        Key::Account(get_key::<AccountHash>("staking_rewards_data", "nominated_owner"))
+    ) {
         runtime::revert(Error::OnlyNominatedOwner);
     }
 }
@@ -744,7 +743,7 @@ fn _only_rewards_distribution() {
     }
 }
 
-fn _update_reward(account: AccountHash) {
+fn _update_reward(account: Key) {
     set_key(
         "staking_rewards_data",
         "reward_per_token_stored",
@@ -755,15 +754,15 @@ fn _update_reward(account: AccountHash) {
         "last_update_time",
         last_time_reward_applicable()
     );
-    if (account != AccountHash::new([0u8; 32])) {
+    if (account != Key::Hash([0u8; 32])) {
         set_key(
             "rewards",
-            &account.to_string(),
+            &key_to_str(&account),
             earned(account)
         );
         set_key(
             "user_reward_per_token_paid",
-            &account.to_string(),
+            &key_to_str(&account),
             get_key::<U256>("staking_rewards_data", "reward_per_token_stored")
         );
     }
@@ -855,5 +854,13 @@ fn get_caller() -> Key {
             contract_package_hash: _,
             contract_hash,
         } => (*contract_hash).into(),
+    }
+}
+
+fn key_to_str(key: &Key) -> String {
+    match key {
+        Key::Account(account) => account.to_string(),
+        Key::Hash(package) => hex::encode(package),
+        _ => runtime::revert(ApiError::UnexpectedKeyVariant),
     }
 }
